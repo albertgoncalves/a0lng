@@ -524,12 +524,14 @@ Env eval_expr(Memory*, Env);
             .expr  = intrinsic.expr,                                        \
         };                                                                  \
         l = eval_expr(memory, l);                                           \
+        EXIT_IF(!l.expr);                                                   \
         EXIT_IF(l.expr->tag != AST_EXPR_I64);                               \
         Env r = {                                                           \
             .scope = scope,                                                 \
             .expr  = arg,                                                   \
         };                                                                  \
         r = eval_expr(memory, r);                                           \
+        EXIT_IF(!r.expr);                                                   \
         EXIT_IF(r.expr->tag != AST_EXPR_I64);                               \
         return (Env){                                                       \
             .scope = scope,                                                 \
@@ -544,6 +546,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
                                Intrinsic      intrinsic,
                                const AstExpr* arg) {
     TRACE(intrinsic.expr);
+    EXIT_IF(!intrinsic.expr);
     switch (intrinsic.tag) {
     case INTRIN_SEMICOLON: {
         Env env = {
@@ -556,7 +559,8 @@ static Env eval_expr_intrinsic(Memory*        memory,
     }
     case INTRIN_ASSIGN: {
         EXIT_IF(intrinsic.expr->tag != AST_EXPR_IDENT);
-        Env  env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
+        Env env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
+        EXIT_IF(!env.expr);
         Var* var = lookup_scope(scope, intrinsic.expr->body.as_string);
         if (var) {
             var->env = env;
@@ -587,6 +591,8 @@ static Env eval_expr_call(Memory*        memory,
                           const AstExpr* func,
                           const AstExpr* arg) {
     TRACE(func);
+    EXIT_IF(!func);
+    EXIT_IF(!arg);
     switch (func->tag) {
     case AST_EXPR_INTRIN: {
         return eval_expr_intrinsic(memory,
@@ -596,6 +602,7 @@ static Env eval_expr_call(Memory*        memory,
     }
     case AST_EXPR_IDENT: {
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = func});
+        EXIT_IF(!env.expr);
         return eval_expr_call(memory, env.scope, env.expr, arg);
     }
     case AST_EXPR_CALL: {
@@ -603,6 +610,7 @@ static Env eval_expr_call(Memory*        memory,
                                  scope,
                                  func->body.as_exprs[0],
                                  func->body.as_exprs[1]);
+        EXIT_IF(!env.expr);
         return eval_expr_call(memory, env.scope, env.expr, arg);
     }
     case AST_EXPR_FN0: {
@@ -631,6 +639,7 @@ static Env eval_expr_call(Memory*        memory,
 
 Env eval_expr(Memory* memory, Env env) {
     TRACE(env.expr);
+    EXIT_IF(!env.expr);
     switch (env.expr->tag) {
     case AST_EXPR_IDENT: {
         Var* var = lookup_scope(env.scope, env.expr->body.as_string);
