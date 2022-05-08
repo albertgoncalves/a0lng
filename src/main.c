@@ -37,7 +37,7 @@ typedef enum {
     TOKEN_DIV,
     TOKEN_IDENT,
     TOKEN_I64,
-    TOKEN_VOID,
+    TOKEN_EMPTY,
 } TokenTag;
 
 typedef struct {
@@ -76,7 +76,7 @@ typedef union {
 } AstExprBody;
 
 typedef enum {
-    AST_EXPR_VOID = 0,
+    AST_EXPR_EMPTY = 0,
     AST_EXPR_CALL,
     AST_EXPR_IDENT,
     AST_EXPR_I64,
@@ -157,9 +157,9 @@ static const AstExpr* alloc_expr_i64(Memory* memory, i64 x) {
     return expr;
 }
 
-static const AstExpr* alloc_expr_void(Memory* memory) {
+static const AstExpr* alloc_expr_empty(Memory* memory) {
     AstExpr* expr = alloc_expr(memory);
-    expr->tag     = AST_EXPR_VOID;
+    expr->tag     = AST_EXPR_EMPTY;
     return expr;
 }
 
@@ -285,7 +285,7 @@ static void print_token(Token token) {
         putchar('/');
         break;
     }
-    case TOKEN_VOID: {
+    case TOKEN_EMPTY: {
         putchar('_');
         break;
     }
@@ -371,8 +371,8 @@ const AstExpr* parse_expr(Memory*       memory,
         expr = parse_fn(memory, tokens, depth);
         break;
     }
-    case TOKEN_VOID: {
-        expr = alloc_expr_void(memory);
+    case TOKEN_EMPTY: {
+        expr = alloc_expr_empty(memory);
         ++(*tokens);
         break;
     }
@@ -405,7 +405,7 @@ const AstExpr* parse_expr(Memory*       memory,
         }
         case TOKEN_IDENT:
         case TOKEN_I64:
-        case TOKEN_VOID: {
+        case TOKEN_EMPTY: {
 #define BINDING_LEFT  11
 #define BINDING_RIGHT 12
             if (BINDING_LEFT < binding) {
@@ -550,7 +550,7 @@ static void print_expr(const AstExpr* expr) {
         putchar(' ');
         break;
     }
-    case AST_EXPR_VOID: {
+    case AST_EXPR_EMPTY: {
         break;
     }
     default: {
@@ -680,7 +680,7 @@ static Env eval_expr_call(Memory*        memory,
             (Env){.scope = scope, .expr = func->body.as_fn1.expr});
     }
     case AST_EXPR_I64:
-    case AST_EXPR_VOID:
+    case AST_EXPR_EMPTY:
     default: {
         EXIT();
     }
@@ -708,7 +708,7 @@ Env eval_expr(Memory* memory, Env env) {
                               env.expr->body.as_exprs[0],
                               env.expr->body.as_exprs[1]);
     }
-    case AST_EXPR_VOID:
+    case AST_EXPR_EMPTY:
     default: {
         EXIT();
     }
@@ -763,13 +763,13 @@ static const Token TOKENS[] = {
     {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
     {.tag = TOKEN_ASSIGN},
     {.body = {.as_string = STRING("f3")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_VOID},
+    {.tag = TOKEN_EMPTY},
     {.tag = TOKEN_SEMICOLON},
     {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_VOID},
+    {.tag = TOKEN_EMPTY},
     {.tag = TOKEN_SEMICOLON},
     {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_VOID},
+    {.tag = TOKEN_EMPTY},
     {.tag = TOKEN_END},
 };
 
