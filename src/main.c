@@ -32,7 +32,9 @@ typedef enum {
     TOKEN_SEMICOLON,
     TOKEN_ASSIGN,
     TOKEN_ADD,
+    TOKEN_SUB,
     TOKEN_MUL,
+    TOKEN_DIV,
     TOKEN_IDENT,
     TOKEN_I64,
     TOKEN_VOID,
@@ -54,7 +56,9 @@ typedef enum {
     INTRIN_SEMICOLON,
     INTRIN_ASSIGN,
     INTRIN_ADD,
+    INTRIN_SUB,
     INTRIN_MUL,
+    INTRIN_DIV,
 } IntrinsicTag;
 
 typedef struct {
@@ -113,6 +117,11 @@ typedef struct {
     Scope   scopes[CAP_SCOPES];
     u32     len_scopes;
 } Memory;
+
+static const AstExpr I64_ZERO = (AstExpr){
+    .tag  = AST_EXPR_I64,
+    .body = {.as_i64 = 0},
+};
 
 static Memory* alloc_memory(void) {
     void* address = mmap(NULL,
@@ -264,8 +273,16 @@ static void print_token(Token token) {
         putchar('+');
         break;
     }
+    case TOKEN_SUB: {
+        putchar('-');
+        break;
+    }
     case TOKEN_MUL: {
         putchar('*');
+        break;
+    }
+    case TOKEN_DIV: {
+        putchar('/');
         break;
     }
     case TOKEN_VOID: {
@@ -359,12 +376,23 @@ const AstExpr* parse_expr(Memory*       memory,
         ++(*tokens);
         break;
     }
+    case TOKEN_SUB: {
+#define BINDING_RIGHT 9
+        ++(*tokens);
+        expr = alloc_expr_call(
+            memory,
+            alloc_expr_intrinsic(memory, INTRIN_SUB, &I64_ZERO),
+            parse_expr(memory, tokens, BINDING_RIGHT, depth));
+        break;
+#undef BINDING_RIGHT
+    }
     case TOKEN_RPAREN:
     case TOKEN_ARROW:
     case TOKEN_SEMICOLON:
     case TOKEN_ASSIGN:
     case TOKEN_ADD:
     case TOKEN_MUL:
+    case TOKEN_DIV:
     case TOKEN_END:
     default: {
         EXIT();
@@ -378,8 +406,8 @@ const AstExpr* parse_expr(Memory*       memory,
         case TOKEN_IDENT:
         case TOKEN_I64:
         case TOKEN_VOID: {
-#define BINDING_LEFT  9
-#define BINDING_RIGHT 10
+#define BINDING_LEFT  11
+#define BINDING_RIGHT 12
             if (BINDING_LEFT < binding) {
                 return expr;
             }
@@ -416,8 +444,16 @@ const AstExpr* parse_expr(Memory*       memory,
             PARSE_INFIX(INTRIN_ADD, 5, 6);
             break;
         }
+        case TOKEN_SUB: {
+            PARSE_INFIX(INTRIN_SUB, 5, 6);
+            break;
+        }
         case TOKEN_MUL: {
             PARSE_INFIX(INTRIN_MUL, 7, 8);
+            break;
+        }
+        case TOKEN_DIV: {
+            PARSE_INFIX(INTRIN_DIV, 7, 8);
             break;
         }
         case TOKEN_ASSIGN: {
@@ -456,8 +492,16 @@ static void print_intrinsic(IntrinsicTag tag) {
         putchar('+');
         break;
     }
+    case INTRIN_SUB: {
+        putchar('-');
+        break;
+    }
     case INTRIN_MUL: {
         putchar('*');
+        break;
+    }
+    case INTRIN_DIV: {
+        putchar('/');
         break;
     }
     default: {
@@ -575,8 +619,14 @@ static Env eval_expr_intrinsic(Memory*        memory,
     case INTRIN_ADD: {
         BINOP_I64(+);
     }
+    case INTRIN_SUB: {
+        BINOP_I64(-);
+    }
     case INTRIN_MUL: {
         BINOP_I64(*);
+    }
+    case INTRIN_DIV: {
+        BINOP_I64(/);
     }
     default: {
         EXIT();
@@ -668,6 +718,8 @@ Env eval_expr(Memory* memory, Env env) {
 static const Token TOKENS[] = {
     {.body = {.as_string = STRING("x")}, .tag = TOKEN_IDENT},
     {.tag = TOKEN_ASSIGN},
+    {.tag = TOKEN_SUB},
+    {.tag = TOKEN_SUB},
     {.body = {.as_i64 = 1}, .tag = TOKEN_I64},
     {.tag = TOKEN_SEMICOLON},
     {.body = {.as_string = STRING("y")}, .tag = TOKEN_IDENT},
