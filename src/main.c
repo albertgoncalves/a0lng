@@ -1,12 +1,11 @@
 #include "prelude.h"
 
-#include <sys/mman.h>
-
+#define CAP_TOKENS (1 << 7)
 #define CAP_NODES  (1 << 7)
 #define CAP_VARS   (1 << 6)
 #define CAP_SCOPES (1 << 6)
 
-#if 0
+#ifdef DEBUG
     #define TRACE(expr)                                  \
         {                                                \
             printf("\n%s:%d\n    ", __func__, __LINE__); \
@@ -110,6 +109,8 @@ struct Scope {
 };
 
 typedef struct {
+    Token   tokens[CAP_TOKENS];
+    u32     len_tokens;
     AstExpr nodes[CAP_NODES];
     u32     len_nodes;
     Var     vars[CAP_VARS];
@@ -122,6 +123,13 @@ static const AstExpr I64_ZERO = (AstExpr){
     .tag  = AST_EXPR_I64,
     .body = {.as_i64 = 0},
 };
+
+#define IS_DIGIT(x) (('0' <= (x)) && ((x) <= '9'))
+
+#define IS_ALPHA(x) \
+    ((('A' <= (x)) && ((x) <= 'Z')) || (('a' <= (x)) && ((x) <= 'z')))
+
+#define IS_IDENT(x) (IS_ALPHA(x) || IS_DIGIT(x) || (x == '_'))
 
 static Memory* alloc_memory(void) {
     void* address = mmap(NULL,
@@ -136,6 +144,124 @@ static Memory* alloc_memory(void) {
     memory->len_vars   = 0;
     memory->len_scopes = 0;
     return memory;
+}
+
+static Token* alloc_token(Memory* memory) {
+    EXIT_IF(CAP_TOKENS <= memory->len_tokens);
+    return &memory->tokens[memory->len_tokens++];
+}
+
+static void tokenize(Memory* memory, String string) {
+    for (u32 i = 0; i < string.len;) {
+        switch (string.buffer[i]) {
+        case ' ':
+        case '\t':
+        case '\n': {
+            ++i;
+            break;
+        }
+        case '#': {
+            while ((i < string.len) && (string.buffer[i++] != '\n')) {
+            }
+            break;
+        }
+        case '(': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_LPAREN;
+            ++i;
+            break;
+        }
+        case ')': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_RPAREN;
+            ++i;
+            break;
+        }
+        case '\\': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_BACKSLASH;
+            ++i;
+            break;
+        }
+        case ';': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_SEMICOLON;
+            ++i;
+            break;
+        }
+        case '_': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_EMPTY;
+            ++i;
+            break;
+        }
+        case '+': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_ADD;
+            ++i;
+            break;
+        }
+        case '*': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_MUL;
+            ++i;
+            break;
+        }
+        case '=': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_ASSIGN;
+            ++i;
+            break;
+        }
+        case '-': {
+            Token* token = alloc_token(memory);
+            token->tag   = TOKEN_SUB;
+            ++i;
+            if (!(i < string.len)) {
+                continue;
+            }
+            switch (string.buffer[i]) {
+            case '>': {
+                token->tag = TOKEN_ARROW;
+                ++i;
+                break;
+            }
+            default: {
+            }
+            }
+            break;
+        }
+        default: {
+            if (IS_DIGIT(string.buffer[i])) {
+                i64 x = 0;
+                for (; i < string.len; ++i) {
+                    if (!IS_DIGIT(string.buffer[i])) {
+                        break;
+                    }
+                    x = (x * 10) + ((i64)(string.buffer[i] - '0'));
+                }
+                Token* token       = alloc_token(memory);
+                token->tag         = TOKEN_I64;
+                token->body.as_i64 = x;
+                continue;
+            }
+            if (IS_ALPHA(string.buffer[i])) {
+                u32 j = i;
+                for (; i < string.len; ++i) {
+                    if (!IS_IDENT(string.buffer[i])) {
+                        break;
+                    }
+                }
+                Token* token = alloc_token(memory);
+                token->tag   = TOKEN_IDENT;
+                token->body.as_string =
+                    (String){.buffer = &string.buffer[j], .len = i - j};
+                continue;
+            }
+            EXIT();
+        }
+        }
+    }
 }
 
 static AstExpr* alloc_expr(Memory* memory) {
@@ -233,78 +359,6 @@ static Scope* push_scope(Memory* memory, Scope* parent) {
     Scope* child = alloc_scope(memory);
     child->next  = parent;
     return child;
-}
-
-static void print_token(Token token) {
-    switch (token.tag) {
-    case TOKEN_IDENT: {
-        print_string(token.body.as_string);
-        break;
-    }
-    case TOKEN_I64: {
-        printf("%ld", token.body.as_i64);
-        break;
-    }
-    case TOKEN_LPAREN: {
-        putchar('(');
-        break;
-    }
-    case TOKEN_RPAREN: {
-        putchar(')');
-        break;
-    }
-    case TOKEN_BACKSLASH: {
-        putchar('\\');
-        break;
-    }
-    case TOKEN_ARROW: {
-        printf("->");
-        break;
-    }
-    case TOKEN_SEMICOLON: {
-        putchar(';');
-        break;
-    }
-    case TOKEN_ASSIGN: {
-        putchar('=');
-        break;
-    }
-    case TOKEN_ADD: {
-        putchar('+');
-        break;
-    }
-    case TOKEN_SUB: {
-        putchar('-');
-        break;
-    }
-    case TOKEN_MUL: {
-        putchar('*');
-        break;
-    }
-    case TOKEN_DIV: {
-        putchar('/');
-        break;
-    }
-    case TOKEN_EMPTY: {
-        putchar('_');
-        break;
-    }
-    case TOKEN_END:
-    default: {
-        EXIT();
-    }
-    }
-}
-
-static void print_tokens(const Token* tokens) {
-    for (u32 i = 0;;) {
-        print_token(tokens[i++]);
-        if (tokens[i].tag == TOKEN_END) {
-            putchar('\n');
-            return;
-        }
-        putchar(' ');
-    }
 }
 
 const AstExpr* parse_expr(Memory*, const Token**, u32, u32);
@@ -715,65 +769,9 @@ Env eval_expr(Memory* memory, Env env) {
     }
 }
 
-static const Token TOKENS[] = {
-    {.body = {.as_string = STRING("x")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.tag = TOKEN_SUB},
-    {.tag = TOKEN_SUB},
-    {.body = {.as_i64 = 1}, .tag = TOKEN_I64},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("y")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_string = STRING("x")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f0")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.tag = TOKEN_LPAREN},
-    {.tag = TOKEN_BACKSLASH},
-    {.tag = TOKEN_ARROW},
-    {.body = {.as_string = STRING("i")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_i64 = 0}, .tag = TOKEN_I64},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f1")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.tag = TOKEN_LPAREN},
-    {.tag = TOKEN_BACKSLASH},
-    {.tag = TOKEN_ARROW},
-    {.body = {.as_string = STRING("i")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_string = STRING("i")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ADD},
-    {.body = {.as_string = STRING("y")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("i")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_RPAREN},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f4")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_string = STRING("f1")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f4")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_RPAREN},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f3")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_string = STRING("f0")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_ASSIGN},
-    {.body = {.as_string = STRING("f3")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_EMPTY},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_EMPTY},
-    {.tag = TOKEN_SEMICOLON},
-    {.body = {.as_string = STRING("f2")}, .tag = TOKEN_IDENT},
-    {.tag = TOKEN_EMPTY},
-    {.tag = TOKEN_END},
-};
-
-i32 main(void) {
+i32 main(i32 n, const char** args) {
+    EXIT_IF(n < 2);
+#ifdef DEBUG
     printf("\n"
            "sizeof(Token)       : %zu\n"
            "sizeof(Intrinsic)   : %zu\n"
@@ -790,12 +788,11 @@ i32 main(void) {
            sizeof(Var),
            sizeof(Scope),
            sizeof(Memory));
+#endif
     Memory* memory = alloc_memory();
-    print_tokens(TOKENS);
-    const Token*   tokens = TOKENS;
+    tokenize(memory, path_to_string(args[1]));
+    const Token*   tokens = memory->tokens;
     const AstExpr* expr   = parse_expr(memory, &tokens, 0, 0);
-    print_expr(expr);
-    putchar('\n');
     print_expr(
         eval_expr(memory, (Env){.scope = alloc_scope(memory), .expr = expr})
             .expr);
