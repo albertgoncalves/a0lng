@@ -37,6 +37,7 @@ typedef enum {
     TOKEN_IDENT,
     TOKEN_I64,
     TOKEN_EMPTY,
+    TOKEN_IF,
 } TokenTag;
 
 typedef struct {
@@ -70,6 +71,11 @@ typedef struct {
     const AstExpr* arg;
 } AstCall;
 
+typedef struct {
+    const AstExpr* cond;
+    const AstExpr* if_true;
+} AstIf;
+
 typedef union {
     AstCall        as_call;
     const AstExpr* as_fn0;
@@ -77,6 +83,7 @@ typedef union {
     String         as_string;
     i64            as_i64;
     AstIntrin      as_intrinsic;
+    AstIf          as_if;
 } AstExprBody;
 
 typedef enum {
@@ -87,6 +94,7 @@ typedef enum {
     AST_EXPR_FN0,
     AST_EXPR_FN1,
     AST_EXPR_INTRIN,
+    AST_EXPR_IF,
 } AstExprTag;
 
 struct AstExpr {
@@ -257,10 +265,14 @@ static void tokenize(Memory* memory, String string) {
                         break;
                     }
                 }
+                String ident = {.buffer = &string.buffer[j], .len = i - j};
                 Token* token = alloc_token(memory);
-                token->tag   = TOKEN_IDENT;
-                token->body.as_string =
-                    (String){.buffer = &string.buffer[j], .len = i - j};
+                if (eq(ident, STRING("if"))) {
+                    token->tag = TOKEN_IF;
+                    continue;
+                }
+                token->tag            = TOKEN_IDENT;
+                token->body.as_string = ident;
                 continue;
             }
             EXIT();
@@ -312,6 +324,16 @@ static const AstExpr* alloc_expr_intrinsic(Memory*        memory,
     intrinsic->body.as_intrinsic.tag  = tag;
     intrinsic->body.as_intrinsic.expr = expr;
     return intrinsic;
+}
+
+static const AstExpr* alloc_expr_if(Memory*        memory,
+                                    const AstExpr* condition,
+                                    const AstExpr* if_true) {
+    AstExpr* expr            = alloc_expr(memory);
+    expr->tag                = AST_EXPR_IF;
+    expr->body.as_if.cond    = condition;
+    expr->body.as_if.if_true = if_true;
+    return expr;
 }
 
 static Var* alloc_var(Memory* memory) {
@@ -467,12 +489,31 @@ static const AstExpr* parse_fn(Memory*       memory,
             parse_expr(memory, tokens, binding_right, depth)); \
     }
 
+static const AstExpr* parse_if(Memory* memory, const Token** tokens) {
+    EXIT_IF((*tokens)->tag != TOKEN_LPAREN);
+    ++(*tokens);
+    const AstExpr* condition = parse_expr(memory, tokens, 0, 1);
+    EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
+    ++(*tokens);
+    EXIT_IF((*tokens)->tag != TOKEN_LPAREN);
+    ++(*tokens);
+    const AstExpr* if_true = parse_expr(memory, tokens, 0, 1);
+    EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
+    ++(*tokens);
+    return alloc_expr_if(memory, condition, if_true);
+}
+
 const AstExpr* parse_expr(Memory*       memory,
                           const Token** tokens,
                           u32           binding,
                           u32           depth) {
     const AstExpr* expr;
     switch ((*tokens)->tag) {
+    case TOKEN_IF: {
+        ++(*tokens);
+        expr = parse_if(memory, tokens);
+        break;
+    }
     case TOKEN_LPAREN: {
         ++(*tokens);
         expr = parse_expr(memory, tokens, 0, depth + 1);
@@ -594,6 +635,7 @@ const AstExpr* parse_expr(Memory*       memory,
             EXIT_IF(depth == 0);
             return expr;
         }
+        case TOKEN_IF:
         case TOKEN_ARROW:
         default: {
             print_token(**tokens);
@@ -679,6 +721,14 @@ static void print_expr(const AstExpr* expr) {
         break;
     }
     case AST_EXPR_EMPTY: {
+        break;
+    }
+    case AST_EXPR_IF: {
+        printf("if(");
+        print_expr(expr->body.as_if.cond);
+        printf(")(");
+        print_expr(expr->body.as_call.arg);
+        putchar(')');
         break;
     }
     default: {
@@ -806,6 +856,7 @@ static Env eval_expr_call(Memory*        memory,
             memory,
             (Env){.scope = scope, .expr = func->body.as_fn1.expr});
     }
+    case AST_EXPR_IF:
     case AST_EXPR_I64:
     case AST_EXPR_EMPTY:
     default: {
@@ -834,6 +885,21 @@ Env eval_expr(Memory* memory, Env env) {
                               env.scope,
                               env.expr->body.as_call.func,
                               env.expr->body.as_call.arg);
+    }
+    case AST_EXPR_IF: {
+        const AstExpr* condition =
+            eval_expr(
+                memory,
+                (Env){.scope = env.scope, .expr = env.expr->body.as_if.cond})
+                .expr;
+        EXIT_IF(condition->tag != AST_EXPR_I64);
+        if (condition->body.as_i64) {
+            eval_expr(memory,
+                      (Env){.scope = env.scope,
+                            .expr  = env.expr->body.as_if.if_true});
+        }
+        env.expr = NULL;
+        return env;
     }
     case AST_EXPR_EMPTY:
     default: {
