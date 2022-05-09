@@ -58,20 +58,25 @@ typedef enum {
     INTRIN_SUB,
     INTRIN_MUL,
     INTRIN_DIV,
-} IntrinsicTag;
+} AstIntrinTag;
 
 typedef struct {
     const AstExpr* expr;
-    IntrinsicTag   tag;
-} Intrinsic;
+    AstIntrinTag   tag;
+} AstIntrin;
+
+typedef struct {
+    const AstExpr* func;
+    const AstExpr* arg;
+} AstCall;
 
 typedef union {
-    const AstExpr* as_exprs[2];
+    AstCall        as_call;
     const AstExpr* as_fn0;
     AstFn1         as_fn1;
     String         as_string;
     i64            as_i64;
-    Intrinsic      as_intrinsic;
+    AstIntrin      as_intrinsic;
 } AstExprBody;
 
 typedef enum {
@@ -292,15 +297,15 @@ static const AstExpr* alloc_expr_empty(Memory* memory) {
 static const AstExpr* alloc_expr_call(Memory*        memory,
                                       const AstExpr* func,
                                       const AstExpr* arg) {
-    AstExpr* expr          = alloc_expr(memory);
-    expr->tag              = AST_EXPR_CALL;
-    expr->body.as_exprs[0] = func;
-    expr->body.as_exprs[1] = arg;
+    AstExpr* expr           = alloc_expr(memory);
+    expr->tag               = AST_EXPR_CALL;
+    expr->body.as_call.func = func;
+    expr->body.as_call.arg  = arg;
     return expr;
 }
 
 static const AstExpr* alloc_expr_intrinsic(Memory*        memory,
-                                           IntrinsicTag   tag,
+                                           AstIntrinTag   tag,
                                            const AstExpr* expr) {
     AstExpr* intrinsic                = alloc_expr(memory);
     intrinsic->tag                    = AST_EXPR_INTRIN;
@@ -532,7 +537,7 @@ const AstExpr* parse_expr(Memory*       memory,
 
 #undef PARSE_INFIX
 
-static void print_intrinsic(IntrinsicTag tag) {
+static void print_intrinsic(AstIntrinTag tag) {
     switch (tag) {
     case INTRIN_SEMICOLON: {
         putchar(';');
@@ -575,9 +580,9 @@ static void print_expr(const AstExpr* expr) {
         break;
     }
     case AST_EXPR_CALL: {
-        print_expr(expr->body.as_exprs[0]);
+        print_expr(expr->body.as_call.func);
         putchar('(');
-        print_expr(expr->body.as_exprs[1]);
+        print_expr(expr->body.as_call.arg);
         putchar(')');
         break;
     }
@@ -641,7 +646,7 @@ Env eval_expr(Memory*, Env);
 
 static Env eval_expr_intrinsic(Memory*        memory,
                                Scope*         scope,
-                               Intrinsic      intrinsic,
+                               AstIntrin      intrinsic,
                                const AstExpr* arg) {
     TRACE(intrinsic.expr);
     EXIT_IF(!intrinsic.expr);
@@ -712,8 +717,8 @@ static Env eval_expr_call(Memory*        memory,
     case AST_EXPR_CALL: {
         Env env = eval_expr_call(memory,
                                  scope,
-                                 func->body.as_exprs[0],
-                                 func->body.as_exprs[1]);
+                                 func->body.as_call.func,
+                                 func->body.as_call.arg);
         EXIT_IF(!env.expr);
         return eval_expr_call(memory, env.scope, env.expr, arg);
     }
@@ -759,8 +764,8 @@ Env eval_expr(Memory* memory, Env env) {
     case AST_EXPR_CALL: {
         return eval_expr_call(memory,
                               env.scope,
-                              env.expr->body.as_exprs[0],
-                              env.expr->body.as_exprs[1]);
+                              env.expr->body.as_call.func,
+                              env.expr->body.as_call.arg);
     }
     case AST_EXPR_EMPTY:
     default: {
@@ -774,7 +779,7 @@ i32 main(i32 n, const char** args) {
 #ifdef DEBUG
     printf("\n"
            "sizeof(Token)       : %zu\n"
-           "sizeof(Intrinsic)   : %zu\n"
+           "sizeof(AstIntrin)   : %zu\n"
            "sizeof(AstExpr)     : %zu\n"
            "sizeof(Env)         : %zu\n"
            "sizeof(Var)         : %zu\n"
@@ -782,7 +787,7 @@ i32 main(i32 n, const char** args) {
            "sizeof(Memory)      : %zu\n"
            "\n",
            sizeof(Token),
-           sizeof(Intrinsic),
+           sizeof(AstIntrin),
            sizeof(AstExpr),
            sizeof(Env),
            sizeof(Var),
