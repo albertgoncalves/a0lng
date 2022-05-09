@@ -11,4 +11,7 @@
 !ex/
 !*.a0
 
+!vim/
+!*.vim
+
 !main
