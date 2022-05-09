@@ -3,7 +3,12 @@
 !*.nix
 !.shellhook
 !.clang-format
+
 !src/
 !*.h
 !*.c
+
+!ex/
+!*.a0
+
 !main
