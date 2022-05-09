@@ -366,6 +366,71 @@ static Scope* push_scope(Memory* memory, Scope* parent) {
     return child;
 }
 
+static void print_token(Token token) {
+    switch (token.tag) {
+    case TOKEN_IDENT: {
+        print_string(token.body.as_string);
+        break;
+    }
+    case TOKEN_I64: {
+        printf("%ld", token.body.as_i64);
+        break;
+    }
+    case TOKEN_LPAREN: {
+        putchar('(');
+        break;
+    }
+    case TOKEN_RPAREN: {
+        putchar(')');
+        break;
+    }
+    case TOKEN_BACKSLASH: {
+        putchar('\\');
+        break;
+    }
+    case TOKEN_ARROW: {
+        printf("->");
+        break;
+    }
+    case TOKEN_SEMICOLON: {
+        putchar(';');
+        break;
+    }
+    case TOKEN_ASSIGN: {
+        putchar('=');
+        break;
+    }
+    case TOKEN_ADD: {
+        putchar('+');
+        break;
+    }
+    case TOKEN_SUB: {
+        putchar('-');
+        break;
+    }
+    case TOKEN_MUL: {
+        putchar('*');
+        break;
+    }
+    case TOKEN_DIV: {
+        putchar('/');
+        break;
+    }
+    case TOKEN_EMPTY: {
+        putchar('_');
+        break;
+    }
+    case TOKEN_IF: {
+        printf("if");
+        break;
+    }
+    case TOKEN_END:
+    default: {
+        EXIT();
+    }
+    }
+}
+
 const AstExpr* parse_expr(Memory*, const Token**, u32, u32);
 
 static const AstExpr* parse_fn(Memory*       memory,
@@ -454,6 +519,8 @@ const AstExpr* parse_expr(Memory*       memory,
     case TOKEN_DIV:
     case TOKEN_END:
     default: {
+        print_token(**tokens);
+        putchar('\n');
         EXIT();
     }
     }
@@ -529,6 +596,8 @@ const AstExpr* parse_expr(Memory*       memory,
         }
         case TOKEN_ARROW:
         default: {
+            print_token(**tokens);
+            putchar('\n');
             EXIT();
         }
         }
@@ -728,7 +797,6 @@ static Env eval_expr_call(Memory*        memory,
                          (Env){.scope = scope, .expr = func->body.as_fn0});
     }
     case AST_EXPR_FN1: {
-        EXIT_IF(func->tag != AST_EXPR_FN1);
         scope = push_scope(memory, scope);
         push_var(memory,
                  scope,
