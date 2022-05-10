@@ -847,11 +847,8 @@ static Env eval_expr_intrinsic(Memory*        memory,
     EXIT_IF(!intrinsic.expr);
     switch (intrinsic.tag) {
     case INTRIN_SEMICOLON: {
-        Env env = {
-            .scope = scope,
-            .expr  = intrinsic.expr,
-        };
-        env      = eval_expr(memory, env);
+        Env env =
+            eval_expr(memory, (Env){.scope = scope, .expr = intrinsic.expr});
         env.expr = arg;
         return eval_expr(memory, (Env){.scope = scope, .expr = arg});
     }
@@ -927,9 +924,9 @@ static Env eval_expr_call(Memory*        memory,
         return eval_expr_call(memory, scope, expr, arg);
     }
     case AST_EXPR_FN0: {
-        scope = push_scope(memory, scope);
         return eval_expr(memory,
-                         (Env){.scope = scope, .expr = func->body.as_fn0});
+                         (Env){.scope = push_scope(memory, scope),
+                               .expr  = func->body.as_expr});
     }
     case AST_EXPR_FN1: {
         scope = push_scope(memory, scope);
