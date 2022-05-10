@@ -864,7 +864,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
         }
         return (Env){
             .scope = scope,
-            .expr  = NULL,
+            .expr  = env.expr,
         };
     }
     case INTRIN_EQ: {
@@ -907,15 +907,21 @@ static Env eval_expr_call(Memory*        memory,
     case AST_EXPR_IDENT: {
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = func});
         EXIT_IF(!env.expr);
-        return eval_expr_call(memory, env.scope, env.expr, arg);
+        return eval_expr_call(
+            memory,
+            env.scope,
+            env.expr,
+            eval_expr(memory, (Env){.scope = scope, .expr = arg}).expr);
     }
     case AST_EXPR_CALL: {
-        Env env = eval_expr_call(memory,
-                                 scope,
-                                 func->body.as_call.func,
-                                 func->body.as_call.arg);
-        EXIT_IF(!env.expr);
-        return eval_expr_call(memory, env.scope, env.expr, arg);
+        const AstExpr* expr = eval_expr_call(memory,
+                                             scope,
+                                             func->body.as_call.func,
+                                             func->body.as_call.arg)
+                                  .expr;
+        EXIT_IF(!expr);
+        // NOTE: Is this the right `scope`?
+        return eval_expr_call(memory, scope, expr, arg);
     }
     case AST_EXPR_FN0: {
         scope = push_scope(memory, scope);
@@ -953,7 +959,8 @@ Env eval_expr(Memory* memory, Env env) {
     case AST_EXPR_I64:
     case AST_EXPR_FN0:
     case AST_EXPR_FN1:
-    case AST_EXPR_INTRIN: {
+    case AST_EXPR_INTRIN:
+    case AST_EXPR_EMPTY: {
         return env;
     }
     case AST_EXPR_CALL: {
@@ -979,7 +986,6 @@ Env eval_expr(Memory* memory, Env env) {
                        .expr;
         return env;
     }
-    case AST_EXPR_EMPTY:
     default: {
         EXIT();
     }
