@@ -30,6 +30,7 @@ typedef enum {
     TOKEN_ARROW,
     TOKEN_SEMICOLON,
     TOKEN_ASSIGN,
+    TOKEN_EQ,
     TOKEN_ADD,
     TOKEN_SUB,
     TOKEN_MUL,
@@ -55,6 +56,7 @@ typedef struct {
 typedef enum {
     INTRIN_SEMICOLON,
     INTRIN_ASSIGN,
+    INTRIN_EQ,
     INTRIN_ADD,
     INTRIN_SUB,
     INTRIN_MUL,
@@ -224,6 +226,18 @@ static void tokenize(Memory* memory, String string) {
             Token* token = alloc_token(memory);
             token->tag   = TOKEN_ASSIGN;
             ++i;
+            if (!(i < string.len)) {
+                continue;
+            }
+            switch (string.buffer[i]) {
+            case '=': {
+                token->tag = TOKEN_EQ;
+                ++i;
+                break;
+            }
+            default: {
+            }
+            }
             break;
         }
         case '-': {
@@ -422,6 +436,10 @@ static void print_token(Token token) {
         putchar('=');
         break;
     }
+    case TOKEN_EQ: {
+        printf("==");
+        break;
+    }
     case TOKEN_ADD: {
         putchar('+');
         break;
@@ -555,6 +573,7 @@ const AstExpr* parse_expr(Memory*       memory,
     case TOKEN_ARROW:
     case TOKEN_SEMICOLON:
     case TOKEN_ASSIGN:
+    case TOKEN_EQ:
     case TOKEN_ADD:
     case TOKEN_MUL:
     case TOKEN_DIV:
@@ -573,8 +592,8 @@ const AstExpr* parse_expr(Memory*       memory,
         case TOKEN_IDENT:
         case TOKEN_I64:
         case TOKEN_EMPTY: {
-#define BINDING_LEFT  11
-#define BINDING_RIGHT 12
+#define BINDING_LEFT  13
+#define BINDING_RIGHT 14
             if (BINDING_LEFT < binding) {
                 return expr;
             }
@@ -608,19 +627,23 @@ const AstExpr* parse_expr(Memory*       memory,
 #undef BINDING_RIGHT
         }
         case TOKEN_ADD: {
-            PARSE_INFIX(INTRIN_ADD, 5, 6);
+            PARSE_INFIX(INTRIN_ADD, 7, 8);
             break;
         }
         case TOKEN_SUB: {
-            PARSE_INFIX(INTRIN_SUB, 5, 6);
+            PARSE_INFIX(INTRIN_SUB, 7, 8);
             break;
         }
         case TOKEN_MUL: {
-            PARSE_INFIX(INTRIN_MUL, 7, 8);
+            PARSE_INFIX(INTRIN_MUL, 9, 10);
             break;
         }
         case TOKEN_DIV: {
-            PARSE_INFIX(INTRIN_DIV, 7, 8);
+            PARSE_INFIX(INTRIN_DIV, 9, 10);
+            break;
+        }
+        case TOKEN_EQ: {
+            PARSE_INFIX(INTRIN_EQ, 5, 6);
             break;
         }
         case TOKEN_ASSIGN: {
@@ -656,6 +679,10 @@ static void print_intrinsic(AstIntrinTag tag) {
     }
     case INTRIN_ASSIGN: {
         putchar('=');
+        break;
+    }
+    case INTRIN_EQ: {
+        printf("==");
         break;
     }
     case INTRIN_ADD: {
@@ -793,6 +820,9 @@ static Env eval_expr_intrinsic(Memory*        memory,
             .scope = scope,
             .expr  = NULL,
         };
+    }
+    case INTRIN_EQ: {
+        BINOP_I64(==);
     }
     case INTRIN_ADD: {
         BINOP_I64(+);
