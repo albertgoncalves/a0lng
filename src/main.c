@@ -138,7 +138,7 @@ typedef struct {
 } Memory;
 
 static const AstExpr I64_ZERO = (AstExpr){
-    .tag  = AST_EXPR_I64,
+    .tag = AST_EXPR_I64,
     .body = {.as_i64 = 0},
 };
 
@@ -157,9 +157,9 @@ static Memory* alloc_memory(void) {
                          -1,
                          0);
     EXIT_IF(address == MAP_FAILED);
-    Memory* memory     = (Memory*)address;
-    memory->len_nodes  = 0;
-    memory->len_vars   = 0;
+    Memory* memory = (Memory*)address;
+    memory->len_nodes = 0;
+    memory->len_vars = 0;
     memory->len_scopes = 0;
     return memory;
 }
@@ -185,49 +185,49 @@ static void tokenize(Memory* memory, String string) {
         }
         case '(': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_LPAREN;
+            token->tag = TOKEN_LPAREN;
             ++i;
             break;
         }
         case ')': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_RPAREN;
+            token->tag = TOKEN_RPAREN;
             ++i;
             break;
         }
         case '\\': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_BACKSLASH;
+            token->tag = TOKEN_BACKSLASH;
             ++i;
             break;
         }
         case ';': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_SEMICOLON;
+            token->tag = TOKEN_SEMICOLON;
             ++i;
             break;
         }
         case '_': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_EMPTY;
+            token->tag = TOKEN_EMPTY;
             ++i;
             break;
         }
         case '+': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_ADD;
+            token->tag = TOKEN_ADD;
             ++i;
             break;
         }
         case '*': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_MUL;
+            token->tag = TOKEN_MUL;
             ++i;
             break;
         }
         case '=': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_ASSIGN;
+            token->tag = TOKEN_ASSIGN;
             ++i;
             if (!(i < string.len)) {
                 continue;
@@ -245,7 +245,7 @@ static void tokenize(Memory* memory, String string) {
         }
         case '-': {
             Token* token = alloc_token(memory);
-            token->tag   = TOKEN_SUB;
+            token->tag = TOKEN_SUB;
             ++i;
             if (!(i < string.len)) {
                 continue;
@@ -270,8 +270,8 @@ static void tokenize(Memory* memory, String string) {
                     }
                     x = (x * 10) + ((i64)(string.buffer[i] - '0'));
                 }
-                Token* token       = alloc_token(memory);
-                token->tag         = TOKEN_I64;
+                Token* token = alloc_token(memory);
+                token->tag = TOKEN_I64;
                 token->body.as_i64 = x;
                 continue;
             }
@@ -296,7 +296,7 @@ static void tokenize(Memory* memory, String string) {
                     token->tag = TOKEN_ELSE;
                     continue;
                 }
-                token->tag            = TOKEN_IDENT;
+                token->tag = TOKEN_IDENT;
                 token->body.as_string = ident;
                 continue;
             }
@@ -305,7 +305,7 @@ static void tokenize(Memory* memory, String string) {
         }
     }
     Token* token = alloc_token(memory);
-    token->tag   = TOKEN_END;
+    token->tag = TOKEN_END;
 }
 
 static AstExpr* alloc_expr(Memory* memory) {
@@ -314,41 +314,41 @@ static AstExpr* alloc_expr(Memory* memory) {
 }
 
 static const AstExpr* alloc_expr_ident(Memory* memory, String string) {
-    AstExpr* expr        = alloc_expr(memory);
-    expr->tag            = AST_EXPR_IDENT;
+    AstExpr* expr = alloc_expr(memory);
+    expr->tag = AST_EXPR_IDENT;
     expr->body.as_string = string;
     return expr;
 }
 
 static const AstExpr* alloc_expr_i64(Memory* memory, i64 x) {
-    AstExpr* expr     = alloc_expr(memory);
-    expr->tag         = AST_EXPR_I64;
+    AstExpr* expr = alloc_expr(memory);
+    expr->tag = AST_EXPR_I64;
     expr->body.as_i64 = x;
     return expr;
 }
 
 static const AstExpr* alloc_expr_empty(Memory* memory) {
     AstExpr* expr = alloc_expr(memory);
-    expr->tag     = AST_EXPR_EMPTY;
+    expr->tag = AST_EXPR_EMPTY;
     return expr;
 }
 
 static const AstExpr* alloc_expr_call(Memory*        memory,
                                       const AstExpr* func,
                                       const AstExpr* arg) {
-    AstExpr* expr           = alloc_expr(memory);
-    expr->tag               = AST_EXPR_CALL;
+    AstExpr* expr = alloc_expr(memory);
+    expr->tag = AST_EXPR_CALL;
     expr->body.as_call.func = func;
-    expr->body.as_call.arg  = arg;
+    expr->body.as_call.arg = arg;
     return expr;
 }
 
 static const AstExpr* alloc_expr_intrinsic(Memory*        memory,
                                            AstIntrinTag   tag,
                                            const AstExpr* expr) {
-    AstExpr* intrinsic                = alloc_expr(memory);
-    intrinsic->tag                    = AST_EXPR_INTRIN;
-    intrinsic->body.as_intrinsic.tag  = tag;
+    AstExpr* intrinsic = alloc_expr(memory);
+    intrinsic->tag = AST_EXPR_INTRIN;
+    intrinsic->body.as_intrinsic.tag = tag;
     intrinsic->body.as_intrinsic.expr = expr;
     return intrinsic;
 }
@@ -357,9 +357,9 @@ static const AstExpr* alloc_expr_if_else(Memory*        memory,
                                          const AstExpr* condition,
                                          const AstExpr* if_then,
                                          const AstExpr* if_else) {
-    AstExpr* expr            = alloc_expr(memory);
-    expr->tag                = AST_EXPR_IF_ELSE;
-    expr->body.as_if.cond    = condition;
+    AstExpr* expr = alloc_expr(memory);
+    expr->tag = AST_EXPR_IF_ELSE;
+    expr->body.as_if.cond = condition;
     expr->body.as_if.if_then = if_then;
     expr->body.as_if.if_else = if_else;
     return expr;
@@ -367,18 +367,18 @@ static const AstExpr* alloc_expr_if_else(Memory*        memory,
 
 static Var* alloc_var(Memory* memory) {
     EXIT_IF(CAP_VARS <= memory->len_vars);
-    Var* var   = &memory->vars[memory->len_vars++];
+    Var* var = &memory->vars[memory->len_vars++];
     var->label = (String){0};
-    var->env   = (Env){0};
-    var->next  = NULL;
+    var->env = (Env){0};
+    var->next = NULL;
     return var;
 }
 
 static Scope* alloc_scope(Memory* memory) {
     EXIT_IF(CAP_SCOPES <= memory->len_scopes);
     Scope* scope = &memory->scopes[memory->len_scopes++];
-    scope->vars  = NULL;
-    scope->next  = NULL;
+    scope->vars = NULL;
+    scope->next = NULL;
     return scope;
 }
 
@@ -404,16 +404,16 @@ static Var* lookup_scope(const Scope* scope, String label) {
 }
 
 static void push_var(Memory* memory, Scope* scope, String label, Env env) {
-    Var* var    = alloc_var(memory);
-    var->label  = label;
-    var->env    = env;
-    var->next   = scope->vars;
+    Var* var = alloc_var(memory);
+    var->label = label;
+    var->env = env;
+    var->next = scope->vars;
     scope->vars = var;
 }
 
 static Scope* push_scope(Memory* memory, Scope* parent) {
     Scope* child = alloc_scope(memory);
-    child->next  = parent;
+    child->next = parent;
     return child;
 }
 
@@ -504,14 +504,14 @@ static const AstExpr* parse_expr_fn(Memory*       memory,
     if ((*tokens)->tag != TOKEN_IDENT) {
         EXIT_IF((*tokens)->tag != TOKEN_ARROW);
         AstExpr* expr = alloc_expr(memory);
-        expr->tag     = AST_EXPR_FN0;
+        expr->tag = AST_EXPR_FN0;
         ++(*tokens);
         expr->body.as_expr = parse_expr(memory, tokens, 0, parent);
         return expr;
     }
     EXIT_IF((*tokens)->tag != TOKEN_IDENT);
-    AstExpr* expr           = alloc_expr(memory);
-    expr->tag               = AST_EXPR_FN1;
+    AstExpr* expr = alloc_expr(memory);
+    expr->tag = AST_EXPR_FN1;
     expr->body.as_fn1.label = (*tokens)->body.as_string;
     ++(*tokens);
     EXIT_IF((*tokens)->tag != TOKEN_ARROW);
@@ -819,14 +819,14 @@ Env eval_expr(Memory*, Env);
     {                                                                       \
         Env l = {                                                           \
             .scope = scope,                                                 \
-            .expr  = intrinsic.expr,                                        \
+            .expr = intrinsic.expr,                                         \
         };                                                                  \
         l = eval_expr(memory, l);                                           \
         EXIT_IF(!l.expr);                                                   \
         EXIT_IF(l.expr->tag != AST_EXPR_I64);                               \
         Env r = {                                                           \
             .scope = scope,                                                 \
-            .expr  = arg,                                                   \
+            .expr = arg,                                                    \
         };                                                                  \
         r = eval_expr(memory, r);                                           \
         EXIT_IF(!r.expr);                                                   \
@@ -864,7 +864,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
         }
         return (Env){
             .scope = scope,
-            .expr  = env.expr,
+            .expr = env.expr,
         };
     }
     case INTRIN_EQ: {
@@ -926,7 +926,7 @@ static Env eval_expr_call(Memory*        memory,
     case AST_EXPR_FN0: {
         return eval_expr(memory,
                          (Env){.scope = push_scope(memory, scope),
-                               .expr  = func->body.as_expr});
+                               .expr = func->body.as_expr});
     }
     case AST_EXPR_FN1: {
         scope = push_scope(memory, scope);
@@ -979,9 +979,9 @@ Env eval_expr(Memory* memory, Env env) {
         env.expr = eval_expr(memory,
                              (Env){
                                  .scope = env.scope,
-                                 .expr  = condition->body.as_i64
-                                              ? env.expr->body.as_if.if_then
-                                              : env.expr->body.as_if.if_else,
+                                 .expr = condition->body.as_i64
+                                             ? env.expr->body.as_if.if_then
+                                             : env.expr->body.as_if.if_else,
                              })
                        .expr;
         return env;
@@ -1015,7 +1015,7 @@ i32 main(i32 n, const char** args) {
     Memory* memory = alloc_memory();
     tokenize(memory, path_to_string(args[1]));
     const Token*   tokens = memory->tokens;
-    const AstExpr* expr   = parse_expr(memory, &tokens, 0, NULL);
+    const AstExpr* expr = parse_expr(memory, &tokens, 0, NULL);
     print_expr(
         eval_expr(memory, (Env){.scope = alloc_scope(memory), .expr = expr})
             .expr);

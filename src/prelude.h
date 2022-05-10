@@ -40,10 +40,10 @@ typedef struct {
     u32         len;
 } String;
 
-#define STRING(literal)                \
-    ((String){                         \
-        .buffer = literal,             \
-        .len    = sizeof(literal) - 1, \
+#define STRING(literal)             \
+    ((String){                      \
+        .buffer = literal,          \
+        .len = sizeof(literal) - 1, \
     })
 
 static Bool eq(String a, String b) {
