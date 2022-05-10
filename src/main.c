@@ -752,6 +752,7 @@ static void print_intrinsic(AstIntrinTag tag) {
 }
 
 static void print_expr(const AstExpr* expr) {
+    EXIT_IF(!expr);
     switch (expr->tag) {
     case AST_EXPR_IDENT: {
         print_string(expr->body.as_string);
@@ -762,8 +763,9 @@ static void print_expr(const AstExpr* expr) {
         break;
     }
     case AST_EXPR_CALL: {
-        print_expr(expr->body.as_call.func);
         putchar('(');
+        print_expr(expr->body.as_call.func);
+        putchar(' ');
         print_expr(expr->body.as_call.arg);
         putchar(')');
         break;
@@ -771,7 +773,7 @@ static void print_expr(const AstExpr* expr) {
     case AST_EXPR_FN0: {
         printf("(\\");
         printf(" -> ");
-        print_expr(expr->body.as_fn0);
+        print_expr(expr->body.as_expr);
         putchar(')');
         break;
     }
@@ -786,12 +788,13 @@ static void print_expr(const AstExpr* expr) {
     case AST_EXPR_INTRIN: {
         putchar('(');
         print_expr(expr->body.as_intrinsic.expr);
-        printf(") ");
-        print_intrinsic(expr->body.as_intrinsic.tag);
         putchar(' ');
+        print_intrinsic(expr->body.as_intrinsic.tag);
+        putchar(')');
         break;
     }
     case AST_EXPR_EMPTY: {
+        printf("()");
         break;
     }
     case AST_EXPR_IF_ELSE: {
