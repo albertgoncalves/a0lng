@@ -945,7 +945,11 @@ Env eval_expr(Memory* memory, Env env) {
     switch (env.expr->tag) {
     case AST_EXPR_IDENT: {
         Var* var = lookup_scope(env.scope, env.expr->body.as_string);
-        EXIT_IF(!var);
+        if (!var) {
+            print_string(env.expr->body.as_string);
+            putchar('\n');
+            EXIT();
+        }
         return var->env;
     }
     case AST_EXPR_I64:
