@@ -846,9 +846,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
     EXIT_IF(!intrinsic.expr);
     switch (intrinsic.tag) {
     case INTRIN_SEMICOLON: {
-        Env env =
-            eval_expr(memory, (Env){.scope = scope, .expr = intrinsic.expr});
-        env.expr = arg;
+        eval_expr(memory, (Env){.scope = scope, .expr = intrinsic.expr});
         return eval_expr(memory, (Env){.scope = scope, .expr = arg});
     }
     case INTRIN_ASSIGN: {
@@ -861,10 +859,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
         } else {
             push_var(memory, scope, intrinsic.expr->body.as_string, env);
         }
-        return (Env){
-            .scope = scope,
-            .expr = env.expr,
-        };
+        return env;
     }
     case INTRIN_EQ: {
         BINOP_I64(==);
@@ -913,14 +908,12 @@ static Env eval_expr_call(Memory*        memory,
             eval_expr(memory, (Env){.scope = scope, .expr = arg}).expr);
     }
     case AST_EXPR_CALL: {
-        const AstExpr* expr = eval_expr_call(memory,
-                                             scope,
-                                             func->body.as_call.func,
-                                             func->body.as_call.arg)
-                                  .expr;
-        EXIT_IF(!expr);
-        // NOTE: Is this the right `scope`?
-        return eval_expr_call(memory, scope, expr, arg);
+        Env env = eval_expr_call(memory,
+                                 scope,
+                                 func->body.as_call.func,
+                                 func->body.as_call.arg);
+        EXIT_IF(!env.expr);
+        return eval_expr_call(memory, env.scope, env.expr, arg);
     }
     case AST_EXPR_FN0: {
         return eval_expr(memory,
