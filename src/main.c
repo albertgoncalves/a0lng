@@ -771,8 +771,7 @@ static void print_expr(const AstExpr* expr) {
         break;
     }
     case AST_EXPR_FN0: {
-        printf("(\\");
-        printf(" -> ");
+        printf("(\\ -> ");
         print_expr(expr->body.as_expr);
         putchar(')');
         break;
