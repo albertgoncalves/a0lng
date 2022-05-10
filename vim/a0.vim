@@ -13,5 +13,7 @@ syn match Number    "\<[0-9]\+\>"
 " NOTE: See `http://vimdoc.sourceforge.net/htmldoc/syntax.html`.
 syn keyword Conditional
     \ if
+    \ then
+    \ else
 
 let b:current_syntax = "a0"

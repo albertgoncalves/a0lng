@@ -39,6 +39,8 @@ typedef enum {
     TOKEN_I64,
     TOKEN_EMPTY,
     TOKEN_IF,
+    TOKEN_THEN,
+    TOKEN_ELSE,
 } TokenTag;
 
 typedef struct {
@@ -75,12 +77,13 @@ typedef struct {
 
 typedef struct {
     const AstExpr* cond;
-    const AstExpr* if_true;
+    const AstExpr* if_then;
+    const AstExpr* if_else;
 } AstIf;
 
 typedef union {
+    const AstExpr* as_expr;
     AstCall        as_call;
-    const AstExpr* as_fn0;
     AstFn1         as_fn1;
     String         as_string;
     i64            as_i64;
@@ -96,7 +99,7 @@ typedef enum {
     AST_EXPR_FN0,
     AST_EXPR_FN1,
     AST_EXPR_INTRIN,
-    AST_EXPR_IF,
+    AST_EXPR_IF_ELSE,
 } AstExprTag;
 
 struct AstExpr {
@@ -285,6 +288,14 @@ static void tokenize(Memory* memory, String string) {
                     token->tag = TOKEN_IF;
                     continue;
                 }
+                if (eq(ident, STRING("then"))) {
+                    token->tag = TOKEN_THEN;
+                    continue;
+                }
+                if (eq(ident, STRING("else"))) {
+                    token->tag = TOKEN_ELSE;
+                    continue;
+                }
                 token->tag            = TOKEN_IDENT;
                 token->body.as_string = ident;
                 continue;
@@ -340,13 +351,15 @@ static const AstExpr* alloc_expr_intrinsic(Memory*        memory,
     return intrinsic;
 }
 
-static const AstExpr* alloc_expr_if(Memory*        memory,
-                                    const AstExpr* condition,
-                                    const AstExpr* if_true) {
+static const AstExpr* alloc_expr_if_else(Memory*        memory,
+                                         const AstExpr* condition,
+                                         const AstExpr* if_then,
+                                         const AstExpr* if_else) {
     AstExpr* expr            = alloc_expr(memory);
-    expr->tag                = AST_EXPR_IF;
+    expr->tag                = AST_EXPR_IF_ELSE;
     expr->body.as_if.cond    = condition;
-    expr->body.as_if.if_true = if_true;
+    expr->body.as_if.if_then = if_then;
+    expr->body.as_if.if_else = if_else;
     return expr;
 }
 
@@ -464,6 +477,14 @@ static void print_token(Token token) {
         printf("if");
         break;
     }
+    case TOKEN_THEN: {
+        printf("then");
+        break;
+    }
+    case TOKEN_ELSE: {
+        printf("else");
+        break;
+    }
     case TOKEN_END:
     default: {
         EXIT();
@@ -471,17 +492,19 @@ static void print_token(Token token) {
     }
 }
 
-const AstExpr* parse_expr(Memory*, const Token**, u32, u32);
+const AstExpr* parse_expr(Memory*, const Token**, u32, const Token*);
 
-static const AstExpr* parse_fn(Memory*       memory,
-                               const Token** tokens,
-                               u32           depth) {
+static const AstExpr* parse_expr_fn(Memory*       memory,
+                                    const Token** tokens,
+                                    const Token*  parent) {
+    EXIT_IF((*tokens)->tag != TOKEN_BACKSLASH);
+    ++(*tokens);
     if ((*tokens)->tag != TOKEN_IDENT) {
         EXIT_IF((*tokens)->tag != TOKEN_ARROW);
         AstExpr* expr = alloc_expr(memory);
         expr->tag     = AST_EXPR_FN0;
         ++(*tokens);
-        expr->body.as_fn0 = parse_expr(memory, tokens, 0, depth);
+        expr->body.as_expr = parse_expr(memory, tokens, 0, parent);
         return expr;
     }
     EXIT_IF((*tokens)->tag != TOKEN_IDENT);
@@ -491,50 +514,53 @@ static const AstExpr* parse_fn(Memory*       memory,
     ++(*tokens);
     EXIT_IF((*tokens)->tag != TOKEN_ARROW);
     ++(*tokens);
-    expr->body.as_fn1.expr = parse_expr(memory, tokens, 0, depth);
+    expr->body.as_fn1.expr = parse_expr(memory, tokens, 0, parent);
     return expr;
 }
 
-#define PARSE_INFIX(tag, binding_left, binding_right)          \
-    {                                                          \
-        if (binding_left < binding) {                          \
-            return expr;                                       \
-        }                                                      \
-        ++(*tokens);                                           \
-        expr = alloc_expr_call(                                \
-            memory,                                            \
-            alloc_expr_intrinsic(memory, tag, expr),           \
-            parse_expr(memory, tokens, binding_right, depth)); \
+#define PARSE_INFIX(tag, binding_left, binding_right)           \
+    {                                                           \
+        if (binding_left < binding) {                           \
+            return expr;                                        \
+        }                                                       \
+        ++(*tokens);                                            \
+        expr = alloc_expr_call(                                 \
+            memory,                                             \
+            alloc_expr_intrinsic(memory, tag, expr),            \
+            parse_expr(memory, tokens, binding_right, parent)); \
     }
 
-static const AstExpr* parse_if(Memory* memory, const Token** tokens) {
-    EXIT_IF((*tokens)->tag != TOKEN_LPAREN);
+static const AstExpr* parse_expr_if_else(Memory*       memory,
+                                         const Token** tokens,
+                                         const Token*  parent) {
+    EXIT_IF((*tokens)->tag != TOKEN_IF);
+    const Token* parent_if = *tokens;
     ++(*tokens);
-    const AstExpr* condition = parse_expr(memory, tokens, 0, 1);
-    EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
+    const AstExpr* condition = parse_expr(memory, tokens, 0, parent_if);
+    EXIT_IF((*tokens)->tag != TOKEN_THEN);
+    const Token* parent_then = *tokens;
     ++(*tokens);
-    EXIT_IF((*tokens)->tag != TOKEN_LPAREN);
+    const AstExpr* if_then = parse_expr(memory, tokens, 0, parent_then);
+    EXIT_IF((*tokens)->tag != TOKEN_ELSE);
     ++(*tokens);
-    const AstExpr* if_true = parse_expr(memory, tokens, 0, 1);
-    EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
-    ++(*tokens);
-    return alloc_expr_if(memory, condition, if_true);
+    const AstExpr* if_else = parse_expr(memory, tokens, 0, parent);
+    return alloc_expr_if_else(memory, condition, if_then, if_else);
 }
 
 const AstExpr* parse_expr(Memory*       memory,
                           const Token** tokens,
                           u32           binding,
-                          u32           depth) {
+                          const Token*  parent) {
     const AstExpr* expr;
     switch ((*tokens)->tag) {
     case TOKEN_IF: {
-        ++(*tokens);
-        expr = parse_if(memory, tokens);
+        expr = parse_expr_if_else(memory, tokens, parent);
         break;
     }
     case TOKEN_LPAREN: {
+        const Token* parent_paren = *tokens;
         ++(*tokens);
-        expr = parse_expr(memory, tokens, 0, depth + 1);
+        expr = parse_expr(memory, tokens, 0, parent_paren);
         EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
         ++(*tokens);
         break;
@@ -550,8 +576,7 @@ const AstExpr* parse_expr(Memory*       memory,
         break;
     }
     case TOKEN_BACKSLASH: {
-        ++(*tokens);
-        expr = parse_fn(memory, tokens, depth);
+        expr = parse_expr_fn(memory, tokens, parent);
         break;
     }
     case TOKEN_EMPTY: {
@@ -565,7 +590,7 @@ const AstExpr* parse_expr(Memory*       memory,
         expr = alloc_expr_call(
             memory,
             alloc_expr_intrinsic(memory, INTRIN_SUB, &I64_ZERO),
-            parse_expr(memory, tokens, BINDING_RIGHT, depth));
+            parse_expr(memory, tokens, BINDING_RIGHT, parent));
         break;
 #undef BINDING_RIGHT
     }
@@ -577,6 +602,8 @@ const AstExpr* parse_expr(Memory*       memory,
     case TOKEN_ADD:
     case TOKEN_MUL:
     case TOKEN_DIV:
+    case TOKEN_THEN:
+    case TOKEN_ELSE:
     case TOKEN_END:
     default: {
         print_token(**tokens);
@@ -586,9 +613,6 @@ const AstExpr* parse_expr(Memory*       memory,
     }
     for (;;) {
         switch ((*tokens)->tag) {
-        case TOKEN_END: {
-            return expr;
-        }
         case TOKEN_IDENT:
         case TOKEN_I64:
         case TOKEN_EMPTY: {
@@ -600,17 +624,19 @@ const AstExpr* parse_expr(Memory*       memory,
             expr = alloc_expr_call(
                 memory,
                 expr,
-                parse_expr(memory, tokens, BINDING_RIGHT, depth));
+                parse_expr(memory, tokens, BINDING_RIGHT, parent));
             break;
         }
         case TOKEN_LPAREN: {
-            ++(*tokens);
             if (BINDING_LEFT < binding) {
                 return expr;
             }
-            expr = alloc_expr_call(memory,
-                                   expr,
-                                   parse_expr(memory, tokens, 0, depth + 1));
+            const Token* parent_paren = *tokens;
+            ++(*tokens);
+            expr =
+                alloc_expr_call(memory,
+                                expr,
+                                parse_expr(memory, tokens, 0, parent_paren));
             EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
             ++(*tokens);
             break;
@@ -620,8 +646,9 @@ const AstExpr* parse_expr(Memory*       memory,
                 return expr;
             }
             ++(*tokens);
-            expr =
-                alloc_expr_call(memory, expr, parse_fn(memory, tokens, depth));
+            expr = alloc_expr_call(memory,
+                                   expr,
+                                   parse_expr_fn(memory, tokens, parent));
             break;
 #undef BINDING_LEFT
 #undef BINDING_RIGHT
@@ -655,7 +682,22 @@ const AstExpr* parse_expr(Memory*       memory,
             break;
         }
         case TOKEN_RPAREN: {
-            EXIT_IF(depth == 0);
+            EXIT_IF(!parent);
+            EXIT_IF(parent->tag != TOKEN_LPAREN);
+            return expr;
+        }
+        case TOKEN_THEN: {
+            EXIT_IF(!parent);
+            EXIT_IF(parent->tag != TOKEN_IF);
+            return expr;
+        }
+        case TOKEN_ELSE: {
+            EXIT_IF(!parent);
+            EXIT_IF(parent->tag != TOKEN_THEN);
+            return expr;
+        }
+        case TOKEN_END: {
+            EXIT_IF(parent);
             return expr;
         }
         case TOKEN_IF:
@@ -750,12 +792,14 @@ static void print_expr(const AstExpr* expr) {
     case AST_EXPR_EMPTY: {
         break;
     }
-    case AST_EXPR_IF: {
-        printf("if(");
+    case AST_EXPR_IF_ELSE: {
+        printf("(if ");
         print_expr(expr->body.as_if.cond);
-        printf(")(");
-        print_expr(expr->body.as_call.arg);
-        putchar(')');
+        printf(" then ");
+        print_expr(expr->body.as_if.if_then);
+        printf(" else ");
+        print_expr(expr->body.as_if.if_else);
+        printf(")");
         break;
     }
     default: {
@@ -886,7 +930,7 @@ static Env eval_expr_call(Memory*        memory,
             memory,
             (Env){.scope = scope, .expr = func->body.as_fn1.expr});
     }
-    case AST_EXPR_IF:
+    case AST_EXPR_IF_ELSE:
     case AST_EXPR_I64:
     case AST_EXPR_EMPTY:
     default: {
@@ -916,19 +960,21 @@ Env eval_expr(Memory* memory, Env env) {
                               env.expr->body.as_call.func,
                               env.expr->body.as_call.arg);
     }
-    case AST_EXPR_IF: {
+    case AST_EXPR_IF_ELSE: {
         const AstExpr* condition =
             eval_expr(
                 memory,
                 (Env){.scope = env.scope, .expr = env.expr->body.as_if.cond})
                 .expr;
         EXIT_IF(condition->tag != AST_EXPR_I64);
-        if (condition->body.as_i64) {
-            eval_expr(memory,
-                      (Env){.scope = env.scope,
-                            .expr  = env.expr->body.as_if.if_true});
-        }
-        env.expr = NULL;
+        env.expr = eval_expr(memory,
+                             (Env){
+                                 .scope = env.scope,
+                                 .expr  = condition->body.as_i64
+                                              ? env.expr->body.as_if.if_then
+                                              : env.expr->body.as_if.if_else,
+                             })
+                       .expr;
         return env;
     }
     case AST_EXPR_EMPTY:
@@ -961,7 +1007,7 @@ i32 main(i32 n, const char** args) {
     Memory* memory = alloc_memory();
     tokenize(memory, path_to_string(args[1]));
     const Token*   tokens = memory->tokens;
-    const AstExpr* expr   = parse_expr(memory, &tokens, 0, 0);
+    const AstExpr* expr   = parse_expr(memory, &tokens, 0, NULL);
     print_expr(
         eval_expr(memory, (Env){.scope = alloc_scope(memory), .expr = expr})
             .expr);
