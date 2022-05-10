@@ -1,7 +1,7 @@
 #include "prelude.h"
 
 #define CAP_TOKENS (1 << 7)
-#define CAP_NODES  (1 << 7)
+#define CAP_NODES  (1 << 8)
 #define CAP_VARS   (1 << 6)
 #define CAP_SCOPES (1 << 6)
 
