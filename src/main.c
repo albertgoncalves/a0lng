@@ -304,6 +304,8 @@ static void tokenize(Memory* memory, String string) {
         }
         }
     }
+    Token* token = alloc_token(memory);
+    token->tag   = TOKEN_END;
 }
 
 static AstExpr* alloc_expr(Memory* memory) {
