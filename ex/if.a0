@@ -1,8 +1,8 @@
 (\ ->
-    a = 0;
+    a := 0;
     (
-        if (b = 0 + 1; b) then (
-            c = a + -3;
+        if (b := 0 + 1; b) then (
+            c := a + -3;
             a = c
         ) else
             a

@@ -30,6 +30,7 @@ typedef enum {
     TOKEN_ARROW,
     TOKEN_SEMICOLON,
     TOKEN_ASSIGN,
+    TOKEN_UPDATE,
     TOKEN_EQ,
     TOKEN_ADD,
     TOKEN_SUB,
@@ -58,6 +59,7 @@ typedef struct {
 typedef enum {
     INTRIN_SEMICOLON,
     INTRIN_ASSIGN,
+    INTRIN_UPDATE,
     INTRIN_EQ,
     INTRIN_ADD,
     INTRIN_SUB,
@@ -225,9 +227,25 @@ static void tokenize(Memory* memory, String string) {
             ++i;
             break;
         }
+        case ':': {
+            EXIT_IF(!(i < string.len));
+            ++i;
+            switch (string.buffer[i]) {
+            case '=': {
+                Token* token = alloc_token(memory);
+                token->tag = TOKEN_ASSIGN;
+                ++i;
+                break;
+            }
+            default: {
+                EXIT();
+            }
+            }
+            break;
+        }
         case '=': {
             Token* token = alloc_token(memory);
-            token->tag = TOKEN_ASSIGN;
+            token->tag = TOKEN_UPDATE;
             ++i;
             if (!(i < string.len)) {
                 continue;
@@ -448,6 +466,10 @@ static void print_token(Token token) {
         break;
     }
     case TOKEN_ASSIGN: {
+        printf(":=");
+        break;
+    }
+    case TOKEN_UPDATE: {
         putchar('=');
         break;
     }
@@ -600,6 +622,7 @@ const AstExpr* parse_expr(Memory*       memory,
     case TOKEN_ARROW:
     case TOKEN_SEMICOLON:
     case TOKEN_ASSIGN:
+    case TOKEN_UPDATE:
     case TOKEN_EQ:
     case TOKEN_ADD:
     case TOKEN_MUL:
@@ -679,6 +702,10 @@ const AstExpr* parse_expr(Memory*       memory,
             PARSE_INFIX(INTRIN_ASSIGN, 4, 3);
             break;
         }
+        case TOKEN_UPDATE: {
+            PARSE_INFIX(INTRIN_UPDATE, 4, 3);
+            break;
+        }
         case TOKEN_SEMICOLON: {
             PARSE_INFIX(INTRIN_SEMICOLON, 1, 2);
             break;
@@ -722,6 +749,10 @@ static void print_intrinsic(AstIntrinTag tag) {
         break;
     }
     case INTRIN_ASSIGN: {
+        printf(":=");
+        break;
+    }
+    case INTRIN_UPDATE: {
         putchar('=');
         break;
     }
@@ -853,12 +884,18 @@ static Env eval_expr_intrinsic(Memory*        memory,
         EXIT_IF(intrinsic.expr->tag != AST_EXPR_IDENT);
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
         EXIT_IF(!env.expr);
+        Var* var = lookup_var(scope->vars, intrinsic.expr->body.as_string);
+        EXIT_IF(var);
+        push_var(memory, scope, intrinsic.expr->body.as_string, env);
+        return env;
+    }
+    case INTRIN_UPDATE: {
+        EXIT_IF(intrinsic.expr->tag != AST_EXPR_IDENT);
+        Env env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
+        EXIT_IF(!env.expr);
         Var* var = lookup_scope(scope, intrinsic.expr->body.as_string);
-        if (var) {
-            var->env = env;
-        } else {
-            push_var(memory, scope, intrinsic.expr->body.as_string, env);
-        }
+        EXIT_IF(!var);
+        var->env = env;
         return env;
     }
     case INTRIN_EQ: {
