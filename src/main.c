@@ -23,7 +23,8 @@ typedef union {
 } TokenBody;
 
 typedef enum {
-    TOKEN_END = 0,
+    TOKEN_ERROR = 0,
+    TOKEN_END,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
     TOKEN_BACKSLASH,
@@ -57,6 +58,7 @@ typedef struct {
 } AstFn1;
 
 typedef enum {
+    INTRIN_ERROR = 0,
     INTRIN_SEMICOLON,
     INTRIN_ASSIGN,
     INTRIN_UPDATE,
@@ -94,7 +96,8 @@ typedef union {
 } AstExprBody;
 
 typedef enum {
-    AST_EXPR_EMPTY = 0,
+    AST_EXPR_ERROR = 0,
+    AST_EXPR_EMPTY,
     AST_EXPR_CALL,
     AST_EXPR_IDENT,
     AST_EXPR_I64,
@@ -160,9 +163,7 @@ static Memory* alloc_memory(void) {
                          0);
     EXIT_IF(address == MAP_FAILED);
     Memory* memory = (Memory*)address;
-    memory->len_nodes = 0;
-    memory->len_vars = 0;
-    memory->len_scopes = 0;
+    memset(memory, 0, sizeof(Memory));
     return memory;
 }
 
@@ -509,7 +510,14 @@ static void print_token(Token token) {
         printf("else");
         break;
     }
-    case TOKEN_END:
+    case TOKEN_END: {
+        printf("TOKEN_END");
+        break;
+    }
+    case TOKEN_ERROR: {
+        printf("TOKEN_ERROR");
+        break;
+    }
     default: {
         EXIT();
     }
@@ -630,6 +638,7 @@ const AstExpr* parse_expr(Memory*       memory,
     case TOKEN_THEN:
     case TOKEN_ELSE:
     case TOKEN_END:
+    case TOKEN_ERROR:
     default: {
         print_token(**tokens);
         putchar('\n');
@@ -731,6 +740,7 @@ const AstExpr* parse_expr(Memory*       memory,
         }
         case TOKEN_IF:
         case TOKEN_ARROW:
+        case TOKEN_ERROR:
         default: {
             print_token(**tokens);
             putchar('\n');
@@ -774,6 +784,10 @@ static void print_intrinsic(AstIntrinTag tag) {
     }
     case INTRIN_DIV: {
         putchar('/');
+        break;
+    }
+    case INTRIN_ERROR: {
+        printf("INTRIN_ERROR");
         break;
     }
     default: {
@@ -835,6 +849,10 @@ static void print_expr(const AstExpr* expr) {
         printf(" else ");
         print_expr(expr->body.as_if.if_else);
         printf(")");
+        break;
+    }
+    case AST_EXPR_ERROR: {
+        printf("AST_EXPR_ERROR");
         break;
     }
     default: {
@@ -913,6 +931,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
     case INTRIN_DIV: {
         BINOP_I64(/);
     }
+    case INTRIN_ERROR:
     default: {
         EXIT();
     }
@@ -970,6 +989,7 @@ static Env eval_expr_call(Memory*        memory,
     case AST_EXPR_IF_ELSE:
     case AST_EXPR_I64:
     case AST_EXPR_EMPTY:
+    case AST_EXPR_ERROR:
     default: {
         EXIT();
     }
@@ -1019,6 +1039,7 @@ Env eval_expr(Memory* memory, Env env) {
                        .expr;
         return env;
     }
+    case AST_EXPR_ERROR:
     default: {
         EXIT();
     }
