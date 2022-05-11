@@ -50,12 +50,12 @@ typedef struct {
     TokenTag  tag;
 } Token;
 
-typedef struct AstExpr AstExpr;
+typedef struct Expr Expr;
 
 typedef struct {
-    String         label;
-    const AstExpr* expr;
-} AstFn1;
+    String      label;
+    const Expr* expr;
+} Fn1;
 
 typedef enum {
     INTRIN_ERROR = 0,
@@ -67,57 +67,57 @@ typedef enum {
     INTRIN_SUB,
     INTRIN_MUL,
     INTRIN_DIV,
-} AstIntrinTag;
+} IntrinTag;
 
 typedef struct {
-    const AstExpr* expr;
-    AstIntrinTag   tag;
-} AstIntrin;
+    const Expr* expr;
+    IntrinTag   tag;
+} Intrin;
 
 typedef struct {
-    const AstExpr* func;
-    const AstExpr* arg;
-} AstCall;
+    const Expr* func;
+    const Expr* arg;
+} Call;
 
 typedef struct {
-    const AstExpr* cond;
-    const AstExpr* if_then;
-    const AstExpr* if_else;
-} AstIf;
+    const Expr* cond;
+    const Expr* if_then;
+    const Expr* if_else;
+} If;
 
 typedef union {
-    const AstExpr* as_expr;
-    AstCall        as_call;
-    AstFn1         as_fn1;
-    String         as_string;
-    i64            as_i64;
-    AstIntrin      as_intrinsic;
-    AstIf          as_if;
-} AstExprBody;
+    const Expr* as_expr;
+    Call        as_call;
+    Fn1         as_fn1;
+    String      as_string;
+    i64         as_i64;
+    Intrin      as_intrinsic;
+    If          as_if;
+} ExprBody;
 
 typedef enum {
-    AST_EXPR_ERROR = 0,
-    AST_EXPR_EMPTY,
-    AST_EXPR_CALL,
-    AST_EXPR_IDENT,
-    AST_EXPR_I64,
-    AST_EXPR_FN0,
-    AST_EXPR_FN1,
-    AST_EXPR_INTRIN,
-    AST_EXPR_IF_ELSE,
-} AstExprTag;
+    EXPR_ERROR = 0,
+    EXPR_EMPTY,
+    EXPR_CALL,
+    EXPR_IDENT,
+    EXPR_I64,
+    EXPR_FN0,
+    EXPR_FN1,
+    EXPR_INTRIN,
+    EXPR_IF_ELSE,
+} ExprTag;
 
-struct AstExpr {
-    AstExprBody body;
-    AstExprTag  tag;
+struct Expr {
+    ExprBody body;
+    ExprTag  tag;
 };
 
 typedef struct Var   Var;
 typedef struct Scope Scope;
 
 typedef struct {
-    Scope*         scope;
-    const AstExpr* expr;
+    Scope*      scope;
+    const Expr* expr;
 } Env;
 
 struct Var {
@@ -132,18 +132,18 @@ struct Scope {
 };
 
 typedef struct {
-    Token   tokens[CAP_TOKENS];
-    u32     len_tokens;
-    AstExpr nodes[CAP_NODES];
-    u32     len_nodes;
-    Var     vars[CAP_VARS];
-    u32     len_vars;
-    Scope   scopes[CAP_SCOPES];
-    u32     len_scopes;
+    Token tokens[CAP_TOKENS];
+    u32   len_tokens;
+    Expr  nodes[CAP_NODES];
+    u32   len_nodes;
+    Var   vars[CAP_VARS];
+    u32   len_vars;
+    Scope scopes[CAP_SCOPES];
+    u32   len_scopes;
 } Memory;
 
-static const AstExpr I64_ZERO = (AstExpr){
-    .tag = AST_EXPR_I64,
+static const Expr I64_ZERO = (Expr){
+    .tag = EXPR_I64,
     .body = {.as_i64 = 0},
 };
 
@@ -327,57 +327,57 @@ static void tokenize(Memory* memory, String string) {
     token->tag = TOKEN_END;
 }
 
-static AstExpr* alloc_expr(Memory* memory) {
+static Expr* alloc_expr(Memory* memory) {
     EXIT_IF(CAP_NODES <= memory->len_nodes);
     return &memory->nodes[memory->len_nodes++];
 }
 
-static const AstExpr* alloc_expr_ident(Memory* memory, String string) {
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_IDENT;
+static const Expr* alloc_expr_ident(Memory* memory, String string) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_IDENT;
     expr->body.as_string = string;
     return expr;
 }
 
-static const AstExpr* alloc_expr_i64(Memory* memory, i64 x) {
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_I64;
+static const Expr* alloc_expr_i64(Memory* memory, i64 x) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_I64;
     expr->body.as_i64 = x;
     return expr;
 }
 
-static const AstExpr* alloc_expr_empty(Memory* memory) {
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_EMPTY;
+static const Expr* alloc_expr_empty(Memory* memory) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_EMPTY;
     return expr;
 }
 
-static const AstExpr* alloc_expr_call(Memory*        memory,
-                                      const AstExpr* func,
-                                      const AstExpr* arg) {
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_CALL;
+static const Expr* alloc_expr_call(Memory*     memory,
+                                   const Expr* func,
+                                   const Expr* arg) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_CALL;
     expr->body.as_call.func = func;
     expr->body.as_call.arg = arg;
     return expr;
 }
 
-static const AstExpr* alloc_expr_intrinsic(Memory*        memory,
-                                           AstIntrinTag   tag,
-                                           const AstExpr* expr) {
-    AstExpr* intrinsic = alloc_expr(memory);
-    intrinsic->tag = AST_EXPR_INTRIN;
+static const Expr* alloc_expr_intrinsic(Memory*     memory,
+                                        IntrinTag   tag,
+                                        const Expr* expr) {
+    Expr* intrinsic = alloc_expr(memory);
+    intrinsic->tag = EXPR_INTRIN;
     intrinsic->body.as_intrinsic.tag = tag;
     intrinsic->body.as_intrinsic.expr = expr;
     return intrinsic;
 }
 
-static const AstExpr* alloc_expr_if_else(Memory*        memory,
-                                         const AstExpr* condition,
-                                         const AstExpr* if_then,
-                                         const AstExpr* if_else) {
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_IF_ELSE;
+static const Expr* alloc_expr_if_else(Memory*     memory,
+                                      const Expr* condition,
+                                      const Expr* if_then,
+                                      const Expr* if_else) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_IF_ELSE;
     expr->body.as_if.cond = condition;
     expr->body.as_if.if_then = if_then;
     expr->body.as_if.if_else = if_else;
@@ -524,24 +524,24 @@ static void print_token(Token token) {
     }
 }
 
-const AstExpr* parse_expr(Memory*, const Token**, u32, const Token*);
+const Expr* parse_expr(Memory*, const Token**, u32, const Token*);
 
-static const AstExpr* parse_expr_fn(Memory*       memory,
-                                    const Token** tokens,
-                                    const Token*  parent) {
+static const Expr* parse_expr_fn(Memory*       memory,
+                                 const Token** tokens,
+                                 const Token*  parent) {
     EXIT_IF((*tokens)->tag != TOKEN_BACKSLASH);
     ++(*tokens);
     if ((*tokens)->tag != TOKEN_IDENT) {
         EXIT_IF((*tokens)->tag != TOKEN_ARROW);
-        AstExpr* expr = alloc_expr(memory);
-        expr->tag = AST_EXPR_FN0;
+        Expr* expr = alloc_expr(memory);
+        expr->tag = EXPR_FN0;
         ++(*tokens);
         expr->body.as_expr = parse_expr(memory, tokens, 0, parent);
         return expr;
     }
     EXIT_IF((*tokens)->tag != TOKEN_IDENT);
-    AstExpr* expr = alloc_expr(memory);
-    expr->tag = AST_EXPR_FN1;
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_FN1;
     expr->body.as_fn1.label = (*tokens)->body.as_string;
     ++(*tokens);
     EXIT_IF((*tokens)->tag != TOKEN_ARROW);
@@ -562,28 +562,28 @@ static const AstExpr* parse_expr_fn(Memory*       memory,
             parse_expr(memory, tokens, binding_right, parent)); \
     }
 
-static const AstExpr* parse_expr_if_else(Memory*       memory,
-                                         const Token** tokens,
-                                         const Token*  parent) {
+static const Expr* parse_expr_if_else(Memory*       memory,
+                                      const Token** tokens,
+                                      const Token*  parent) {
     EXIT_IF((*tokens)->tag != TOKEN_IF);
     const Token* parent_if = *tokens;
     ++(*tokens);
-    const AstExpr* condition = parse_expr(memory, tokens, 0, parent_if);
+    const Expr* condition = parse_expr(memory, tokens, 0, parent_if);
     EXIT_IF((*tokens)->tag != TOKEN_THEN);
     const Token* parent_then = *tokens;
     ++(*tokens);
-    const AstExpr* if_then = parse_expr(memory, tokens, 0, parent_then);
+    const Expr* if_then = parse_expr(memory, tokens, 0, parent_then);
     EXIT_IF((*tokens)->tag != TOKEN_ELSE);
     ++(*tokens);
-    const AstExpr* if_else = parse_expr(memory, tokens, 0, parent);
+    const Expr* if_else = parse_expr(memory, tokens, 0, parent);
     return alloc_expr_if_else(memory, condition, if_then, if_else);
 }
 
-const AstExpr* parse_expr(Memory*       memory,
-                          const Token** tokens,
-                          u32           binding,
-                          const Token*  parent) {
-    const AstExpr* expr;
+const Expr* parse_expr(Memory*       memory,
+                       const Token** tokens,
+                       u32           binding,
+                       const Token*  parent) {
+    const Expr* expr;
     switch ((*tokens)->tag) {
     case TOKEN_IF: {
         expr = parse_expr_if_else(memory, tokens, parent);
@@ -752,7 +752,7 @@ const AstExpr* parse_expr(Memory*       memory,
 
 #undef PARSE_INFIX
 
-static void print_intrinsic(AstIntrinTag tag) {
+static void print_intrinsic(IntrinTag tag) {
     switch (tag) {
     case INTRIN_SEMICOLON: {
         putchar(';');
@@ -796,18 +796,18 @@ static void print_intrinsic(AstIntrinTag tag) {
     }
 }
 
-static void print_expr(const AstExpr* expr) {
+static void print_expr(const Expr* expr) {
     EXIT_IF(!expr);
     switch (expr->tag) {
-    case AST_EXPR_IDENT: {
+    case EXPR_IDENT: {
         print_string(expr->body.as_string);
         break;
     }
-    case AST_EXPR_I64: {
+    case EXPR_I64: {
         printf("%ld", expr->body.as_i64);
         break;
     }
-    case AST_EXPR_CALL: {
+    case EXPR_CALL: {
         putchar('(');
         print_expr(expr->body.as_call.func);
         putchar(' ');
@@ -815,13 +815,13 @@ static void print_expr(const AstExpr* expr) {
         putchar(')');
         break;
     }
-    case AST_EXPR_FN0: {
+    case EXPR_FN0: {
         printf("(\\ -> ");
         print_expr(expr->body.as_expr);
         putchar(')');
         break;
     }
-    case AST_EXPR_FN1: {
+    case EXPR_FN1: {
         printf("(\\");
         print_string(expr->body.as_fn1.label);
         printf(" -> ");
@@ -829,7 +829,7 @@ static void print_expr(const AstExpr* expr) {
         putchar(')');
         break;
     }
-    case AST_EXPR_INTRIN: {
+    case EXPR_INTRIN: {
         putchar('(');
         print_expr(expr->body.as_intrinsic.expr);
         putchar(' ');
@@ -837,11 +837,11 @@ static void print_expr(const AstExpr* expr) {
         putchar(')');
         break;
     }
-    case AST_EXPR_EMPTY: {
+    case EXPR_EMPTY: {
         printf("()");
         break;
     }
-    case AST_EXPR_IF_ELSE: {
+    case EXPR_IF_ELSE: {
         printf("(if ");
         print_expr(expr->body.as_if.cond);
         printf(" then ");
@@ -851,8 +851,8 @@ static void print_expr(const AstExpr* expr) {
         printf(")");
         break;
     }
-    case AST_EXPR_ERROR: {
-        printf("AST_EXPR_ERROR");
+    case EXPR_ERROR: {
+        printf("EXPR_ERROR");
         break;
     }
     default: {
@@ -871,14 +871,14 @@ Env eval_expr(Memory*, Env);
         };                                                                  \
         l = eval_expr(memory, l);                                           \
         EXIT_IF(!l.expr);                                                   \
-        EXIT_IF(l.expr->tag != AST_EXPR_I64);                               \
+        EXIT_IF(l.expr->tag != EXPR_I64);                                   \
         Env r = {                                                           \
             .scope = scope,                                                 \
             .expr = arg,                                                    \
         };                                                                  \
         r = eval_expr(memory, r);                                           \
         EXIT_IF(!r.expr);                                                   \
-        EXIT_IF(r.expr->tag != AST_EXPR_I64);                               \
+        EXIT_IF(r.expr->tag != EXPR_I64);                                   \
         return (Env){                                                       \
             .scope = scope,                                                 \
             .expr =                                                         \
@@ -887,10 +887,10 @@ Env eval_expr(Memory*, Env);
         };                                                                  \
     }
 
-static Env eval_expr_intrinsic(Memory*        memory,
-                               Scope*         scope,
-                               AstIntrin      intrinsic,
-                               const AstExpr* arg) {
+static Env eval_expr_intrinsic(Memory*     memory,
+                               Scope*      scope,
+                               Intrin      intrinsic,
+                               const Expr* arg) {
     TRACE(intrinsic.expr);
     EXIT_IF(!intrinsic.expr);
     switch (intrinsic.tag) {
@@ -899,7 +899,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
         return eval_expr(memory, (Env){.scope = scope, .expr = arg});
     }
     case INTRIN_ASSIGN: {
-        EXIT_IF(intrinsic.expr->tag != AST_EXPR_IDENT);
+        EXIT_IF(intrinsic.expr->tag != EXPR_IDENT);
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
         EXIT_IF(!env.expr);
         Var* var = lookup_var(scope->vars, intrinsic.expr->body.as_string);
@@ -908,7 +908,7 @@ static Env eval_expr_intrinsic(Memory*        memory,
         return env;
     }
     case INTRIN_UPDATE: {
-        EXIT_IF(intrinsic.expr->tag != AST_EXPR_IDENT);
+        EXIT_IF(intrinsic.expr->tag != EXPR_IDENT);
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = arg});
         EXIT_IF(!env.expr);
         Var* var = lookup_scope(scope, intrinsic.expr->body.as_string);
@@ -940,21 +940,21 @@ static Env eval_expr_intrinsic(Memory*        memory,
 
 #undef BINOP_I64
 
-static Env eval_expr_call(Memory*        memory,
-                          Scope*         scope,
-                          const AstExpr* func,
-                          const AstExpr* arg) {
+static Env eval_expr_call(Memory*     memory,
+                          Scope*      scope,
+                          const Expr* func,
+                          const Expr* arg) {
     TRACE(func);
     EXIT_IF(!func);
     EXIT_IF(!arg);
     switch (func->tag) {
-    case AST_EXPR_INTRIN: {
+    case EXPR_INTRIN: {
         return eval_expr_intrinsic(memory,
                                    scope,
                                    func->body.as_intrinsic,
                                    arg);
     }
-    case AST_EXPR_IDENT: {
+    case EXPR_IDENT: {
         Env env = eval_expr(memory, (Env){.scope = scope, .expr = func});
         EXIT_IF(!env.expr);
         return eval_expr_call(
@@ -963,7 +963,7 @@ static Env eval_expr_call(Memory*        memory,
             env.expr,
             eval_expr(memory, (Env){.scope = scope, .expr = arg}).expr);
     }
-    case AST_EXPR_CALL: {
+    case EXPR_CALL: {
         Env env = eval_expr_call(memory,
                                  scope,
                                  func->body.as_call.func,
@@ -971,12 +971,12 @@ static Env eval_expr_call(Memory*        memory,
         EXIT_IF(!env.expr);
         return eval_expr_call(memory, env.scope, env.expr, arg);
     }
-    case AST_EXPR_FN0: {
+    case EXPR_FN0: {
         return eval_expr(memory,
                          (Env){.scope = push_scope(memory, scope),
                                .expr = func->body.as_expr});
     }
-    case AST_EXPR_FN1: {
+    case EXPR_FN1: {
         scope = push_scope(memory, scope);
         push_var(memory,
                  scope,
@@ -986,10 +986,10 @@ static Env eval_expr_call(Memory*        memory,
             memory,
             (Env){.scope = scope, .expr = func->body.as_fn1.expr});
     }
-    case AST_EXPR_IF_ELSE:
-    case AST_EXPR_I64:
-    case AST_EXPR_EMPTY:
-    case AST_EXPR_ERROR:
+    case EXPR_IF_ELSE:
+    case EXPR_I64:
+    case EXPR_EMPTY:
+    case EXPR_ERROR:
     default: {
         EXIT();
     }
@@ -1000,7 +1000,7 @@ Env eval_expr(Memory* memory, Env env) {
     TRACE(env.expr);
     EXIT_IF(!env.expr);
     switch (env.expr->tag) {
-    case AST_EXPR_IDENT: {
+    case EXPR_IDENT: {
         Var* var = lookup_scope(env.scope, env.expr->body.as_string);
         if (!var) {
             print_string(env.expr->body.as_string);
@@ -1009,26 +1009,26 @@ Env eval_expr(Memory* memory, Env env) {
         }
         return var->env;
     }
-    case AST_EXPR_I64:
-    case AST_EXPR_FN0:
-    case AST_EXPR_FN1:
-    case AST_EXPR_INTRIN:
-    case AST_EXPR_EMPTY: {
+    case EXPR_I64:
+    case EXPR_FN0:
+    case EXPR_FN1:
+    case EXPR_INTRIN:
+    case EXPR_EMPTY: {
         return env;
     }
-    case AST_EXPR_CALL: {
+    case EXPR_CALL: {
         return eval_expr_call(memory,
                               env.scope,
                               env.expr->body.as_call.func,
                               env.expr->body.as_call.arg);
     }
-    case AST_EXPR_IF_ELSE: {
-        const AstExpr* condition =
+    case EXPR_IF_ELSE: {
+        const Expr* condition =
             eval_expr(
                 memory,
                 (Env){.scope = env.scope, .expr = env.expr->body.as_if.cond})
                 .expr;
-        EXIT_IF(condition->tag != AST_EXPR_I64);
+        EXIT_IF(condition->tag != EXPR_I64);
         env.expr = eval_expr(memory,
                              (Env){
                                  .scope = env.scope,
@@ -1039,7 +1039,7 @@ Env eval_expr(Memory* memory, Env env) {
                        .expr;
         return env;
     }
-    case AST_EXPR_ERROR:
+    case EXPR_ERROR:
     default: {
         EXIT();
     }
@@ -1050,17 +1050,17 @@ i32 main(i32 n, const char** args) {
     EXIT_IF(n < 2);
 #ifdef DEBUG
     printf("\n"
-           "sizeof(Token)       : %zu\n"
-           "sizeof(AstIntrin)   : %zu\n"
-           "sizeof(AstExpr)     : %zu\n"
-           "sizeof(Env)         : %zu\n"
-           "sizeof(Var)         : %zu\n"
-           "sizeof(Scope)       : %zu\n"
-           "sizeof(Memory)      : %zu\n"
+           "sizeof(Token)  : %zu\n"
+           "sizeof(Intrin) : %zu\n"
+           "sizeof(Expr)   : %zu\n"
+           "sizeof(Env)    : %zu\n"
+           "sizeof(Var)    : %zu\n"
+           "sizeof(Scope)  : %zu\n"
+           "sizeof(Memory) : %zu\n"
            "\n",
            sizeof(Token),
-           sizeof(AstIntrin),
-           sizeof(AstExpr),
+           sizeof(Intrin),
+           sizeof(Expr),
            sizeof(Env),
            sizeof(Var),
            sizeof(Scope),
@@ -1068,8 +1068,8 @@ i32 main(i32 n, const char** args) {
 #endif
     Memory* memory = alloc_memory();
     tokenize(memory, path_to_string(args[1]));
-    const Token*   tokens = memory->tokens;
-    const AstExpr* expr = parse_expr(memory, &tokens, 0, NULL);
+    const Token* tokens = memory->tokens;
+    const Expr*  expr = parse_expr(memory, &tokens, 0, NULL);
     print_expr(
         eval_expr(memory, (Env){.scope = alloc_scope(memory), .expr = expr})
             .expr);
