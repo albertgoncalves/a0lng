@@ -907,19 +907,19 @@ static Env eval_exprs(Memory* memory, Scope* scope, ExprList list) {
     }
 }
 
-#define BINOP_I64(op)                                                      \
-    {                                                                      \
-        const Expr* l =                                                    \
-            eval_expr(memory, scope, func->body.as_intrinsic.expr).expr;   \
-        EXIT_IF(!l);                                                       \
-        EXIT_IF(l->tag != EXPR_I64);                                       \
-        const Expr* r = arg.expr;                                          \
-        EXIT_IF(!r);                                                       \
-        EXIT_IF(r->tag != EXPR_I64);                                       \
-        return (Env){                                                      \
-            .scope = scope,                                                \
-            .expr =                                                        \
-                alloc_expr_i64(memory, l->body.as_i64 op r->body.as_i64)}; \
+#define BINOP_I64(op)                                                         \
+    {                                                                         \
+        const Expr* l =                                                       \
+            eval_expr(memory, scope, func->body.as_intrinsic.expr).expr;      \
+        EXIT_IF(!l);                                                          \
+        EXIT_IF(l->tag != EXPR_I64);                                          \
+        const Expr* r = arg.expr;                                             \
+        EXIT_IF(!r);                                                          \
+        EXIT_IF(r->tag != EXPR_I64);                                          \
+        return (Env){                                                         \
+            .scope = scope,                                                   \
+            .expr = alloc_expr_i64(memory, l->body.as_i64 op r->body.as_i64), \
+        };                                                                    \
     }
 
 static Env eval_expr_intrinsic(Memory*     memory,
