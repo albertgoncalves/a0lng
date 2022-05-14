@@ -922,6 +922,7 @@ static Env eval_expr_intrinsic(Memory*     memory,
     EXIT_IF(!func);
     EXIT_IF(!arg.expr);
     EXIT_IF(func->tag != EXPR_INTRIN);
+    EXIT_IF(func->body.as_intrinsic.expr->next.expr);
     switch (func->body.as_intrinsic.tag) {
     case INTRIN_ASSIGN: {
         EXIT_IF(func->body.as_intrinsic.expr->tag != EXPR_IDENT);
@@ -973,6 +974,8 @@ static Env eval_expr_call(Memory*     memory,
     EXIT_IF(!scope);
     EXIT_IF(!func);
     EXIT_IF(!arg.expr);
+    EXIT_IF(func->next.expr);
+    EXIT_IF(arg.expr->next.expr);
     switch (func->tag) {
     case EXPR_IDENT:
     case EXPR_CALL:
@@ -1024,6 +1027,9 @@ Env eval_expr(Memory* memory, Scope* scope, const Expr* expr) {
             eval_expr(memory, scope, expr->body.as_call.arg));
     }
     case EXPR_IF_ELSE: {
+        EXIT_IF(expr->body.as_if.condition->next.expr);
+        EXIT_IF(expr->body.as_if.if_then->next.expr);
+        EXIT_IF(expr->body.as_if.if_else->next.expr);
         const Expr* condition =
             eval_expr(memory, scope, expr->body.as_if.condition).expr;
         EXIT_IF(condition->tag != EXPR_I64);
