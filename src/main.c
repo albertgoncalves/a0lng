@@ -513,8 +513,8 @@ static void print_token(Token token) {
         break;
     }
     case TOKEN_ERROR: {
-        printf("TOKEN_ERROR");
-        break;
+        printf("TOKEN_ERROR\n");
+        EXIT();
     }
     default: {
         EXIT();
@@ -804,8 +804,8 @@ static void print_intrinsic(IntrinTag tag) {
         break;
     }
     case INTRIN_ERROR: {
-        printf("INTRIN_ERROR");
-        break;
+        printf("INTRIN_ERROR\n");
+        EXIT();
     }
     default: {
         EXIT();
@@ -867,12 +867,12 @@ static void print_expr(const Expr* expr) {
         print_expr(expr->body.as_if.if_then);
         printf(" else ");
         print_expr(expr->body.as_if.if_else);
-        printf(")");
+        putchar(')');
         break;
     }
     case EXPR_ERROR: {
-        printf("EXPR_ERROR");
-        break;
+        printf("EXPR_ERROR\n");
+        EXIT();
     }
     default: {
         EXIT();
