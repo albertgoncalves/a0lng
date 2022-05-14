@@ -1,0 +1,16 @@
+fib := (\ ->
+    a := 0;
+    b := 1;
+    loop := (\n ->
+        if n == 0 then
+            a
+        else (\ ->
+            c := a + b;
+            a = b;
+            b = c;
+            loop (n - 1)
+        ) _
+    )
+);
+
+fib _ 20 + fib _ 1
