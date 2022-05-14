@@ -31,10 +31,3 @@ flags=(
 
 clang-format -i -verbose "$WD/src/"*
 mold -run clang "${flags[@]}" -o "$WD/bin/main" "$WD/src/main.c"
-
-(
-    for x in "$WD/ex/"*.a0; do
-        printf "\n%s\n" "$x"
-        "$WD/bin/main" "$x"
-    done
-)
