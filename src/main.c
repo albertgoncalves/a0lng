@@ -529,16 +529,16 @@ static ExprList parse_exprs(Memory*       memory,
                             const Token*  parent) {
     ExprList head = {.expr = parse_expr(memory, tokens, 0, parent)};
     Expr*    tail = head.expr;
-    while (tail) {
+    for (;;) {
+        EXIT_IF(!tail);
+        EXIT_IF(tail->next.expr);
         if ((*tokens)->tag != TOKEN_SEMICOLON) {
             return head;
         }
-        EXIT_IF(tail->next.expr);
         ++(*tokens);
         tail->next.expr = parse_expr(memory, tokens, 0, parent);
         tail = tail->next.expr;
     }
-    EXIT();
 }
 
 static Expr* parse_expr_fn(Memory*       memory,
@@ -763,6 +763,14 @@ Expr* parse_expr(Memory*       memory,
         }
         }
     }
+}
+
+static ExprList parse(Memory* memory) {
+    const Token*  token_array = memory->tokens;
+    const Token** token_pointer = &token_array;
+    ExprList      list = parse_exprs(memory, token_pointer, NULL);
+    EXIT_IF((*token_pointer)->tag != TOKEN_END);
+    return list;
 }
 
 static void print_intrinsic(IntrinTag tag) {
@@ -1056,11 +1064,8 @@ i32 main(i32 n, const char** args) {
     EXIT_IF(n < 2);
     Memory* memory = alloc_memory();
     tokenize(memory, path_to_string(args[1]));
-    const Token* tokens = memory->tokens;
-    print_expr(eval_exprs(memory,
-                          alloc_scope(memory),
-                          parse_exprs(memory, &tokens, NULL))
-                   .expr);
+    ExprList list = parse(memory);
+    print_expr(eval_exprs(memory, alloc_scope(memory), list).expr);
     putchar('\n');
     return OK;
 }
