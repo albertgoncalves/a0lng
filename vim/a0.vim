@@ -15,5 +15,6 @@ syn keyword Conditional
     \ if
     \ then
     \ else
+    \ return
 
 let b:current_syntax = "a0"

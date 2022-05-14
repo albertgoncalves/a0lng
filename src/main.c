@@ -3,7 +3,7 @@
 #define CAP_TOKENS (1 << 7)
 #define CAP_EXPRS  (1 << 8)
 #define CAP_VARS   (1 << 6)
-#define CAP_SCOPES (1 << 6)
+#define CAP_SCOPES (1 << 7)
 
 typedef union {
     String as_string;
@@ -31,6 +31,7 @@ typedef enum {
     TOKEN_IF,
     TOKEN_THEN,
     TOKEN_ELSE,
+    TOKEN_RETURN,
 } TokenTag;
 
 typedef struct {
@@ -137,6 +138,10 @@ typedef struct {
     Var   vars[CAP_VARS];
     Scope scopes[CAP_SCOPES];
 } Memory;
+
+static const Expr EMPTY = (Expr){
+    .tag = EXPR_EMPTY,
+};
 
 static const Expr I64_ZERO = (Expr){
     .tag = EXPR_I64,
@@ -311,6 +316,10 @@ static void tokenize(Memory* memory, String string) {
                     token->tag = TOKEN_ELSE;
                     continue;
                 }
+                if (eq(ident, STRING("return"))) {
+                    token->tag = TOKEN_RETURN;
+                    continue;
+                }
                 token->tag = TOKEN_IDENT;
                 token->body.as_string = ident;
                 continue;
@@ -368,6 +377,13 @@ static Expr* alloc_expr_intrinsic(Memory*     memory,
     intrinsic->body.as_intrinsic.tag = tag;
     intrinsic->body.as_intrinsic.expr = expr;
     return intrinsic;
+}
+
+static Expr* alloc_expr_fn0(Memory* memory, ExprList list) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_FN0;
+    expr->body.as_fn0.list = list;
+    return expr;
 }
 
 static Expr* alloc_expr_if_else(Memory*     memory,
@@ -508,6 +524,10 @@ static void print_token(Token token) {
         printf("else");
         break;
     }
+    case TOKEN_RETURN: {
+        printf("return");
+        break;
+    }
     case TOKEN_END: {
         printf("TOKEN_END");
         break;
@@ -523,11 +543,14 @@ static void print_token(Token token) {
 }
 
 Expr* parse_expr(Memory*, const Token**, u32, const Token*);
+Expr* parse_expr_return_if(Memory*, const Token**, const Token*);
 
 static ExprList parse_exprs(Memory*       memory,
                             const Token** tokens,
                             const Token*  parent) {
-    ExprList head = {.expr = parse_expr(memory, tokens, 0, parent)};
+    ExprList head = {.expr = (*tokens)->tag == TOKEN_RETURN
+                                 ? parse_expr_return_if(memory, tokens, parent)
+                                 : parse_expr(memory, tokens, 0, parent)};
     Expr*    tail = head.expr;
     for (;;) {
         EXIT_IF(!tail);
@@ -536,7 +559,9 @@ static ExprList parse_exprs(Memory*       memory,
             return head;
         }
         ++(*tokens);
-        tail->next.expr = parse_expr(memory, tokens, 0, parent);
+        tail->next.expr = (*tokens)->tag == TOKEN_RETURN
+                              ? parse_expr_return_if(memory, tokens, parent)
+                              : parse_expr(memory, tokens, 0, parent);
         tail = tail->next.expr;
     }
 }
@@ -548,11 +573,8 @@ static Expr* parse_expr_fn(Memory*       memory,
     ++(*tokens);
     if ((*tokens)->tag != TOKEN_IDENT) {
         EXIT_IF((*tokens)->tag != TOKEN_ARROW);
-        Expr* expr = alloc_expr(memory);
-        expr->tag = EXPR_FN0;
         ++(*tokens);
-        expr->body.as_fn0.list = parse_exprs(memory, tokens, parent);
-        return expr;
+        return alloc_expr_fn0(memory, parse_exprs(memory, tokens, parent));
     }
     EXIT_IF((*tokens)->tag != TOKEN_IDENT);
     Expr* expr = alloc_expr(memory);
@@ -580,6 +602,29 @@ static Expr* parse_expr_if_else(Memory*       memory,
     ++(*tokens);
     const Expr* if_else = parse_expr(memory, tokens, 0, parent);
     return alloc_expr_if_else(memory, condition, if_then, if_else);
+}
+
+Expr* parse_expr_return_if(Memory*       memory,
+                           const Token** tokens,
+                           const Token*  parent) {
+    EXIT_IF((*tokens)->tag != TOKEN_RETURN);
+    const Token* parent_return = *tokens;
+    ++(*tokens);
+    const Expr* return_if = parse_expr(memory, tokens, 0, parent_return);
+    EXIT_IF((*tokens)->tag != TOKEN_IF);
+    const Token* parent_if = *tokens;
+    ++(*tokens);
+    const Expr* condition = parse_expr(memory, tokens, 0, parent_if);
+    EXIT_IF((*tokens)->tag != TOKEN_SEMICOLON);
+    ++(*tokens);
+    return alloc_expr_if_else(
+        memory,
+        condition,
+        return_if,
+        alloc_expr_call(
+            memory,
+            alloc_expr_fn0(memory, parse_exprs(memory, tokens, parent)),
+            &EMPTY));
 }
 
 #define PARSE_INFIX(tag, binding_left, binding_right)           \
@@ -652,6 +697,7 @@ Expr* parse_expr(Memory*       memory,
     case TOKEN_DIV:
     case TOKEN_THEN:
     case TOKEN_ELSE:
+    case TOKEN_RETURN:
     case TOKEN_END:
     case TOKEN_ERROR:
     default: {
@@ -753,7 +799,12 @@ Expr* parse_expr(Memory*       memory,
         case TOKEN_SEMICOLON: {
             return expr;
         }
-        case TOKEN_IF:
+        case TOKEN_IF: {
+            EXIT_IF(!parent);
+            EXIT_IF(parent->tag != TOKEN_RETURN);
+            return expr;
+        }
+        case TOKEN_RETURN:
         case TOKEN_ARROW:
         case TOKEN_ERROR:
         default: {

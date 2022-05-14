@@ -34,6 +34,9 @@ class Tests(TestCase):
     def test_if(self):
         self.into_test("if", -3)
 
+    def test_return_if(self):
+        self.into_test("return_if", -123)
+
 
 if __name__ == "__main__":
     main()
