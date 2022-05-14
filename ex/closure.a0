@@ -3,8 +3,10 @@
         i := 0;
         f := (\ ->
             i = i + 1
-        )
+        );
+        f
     );
+    i := 10;
     f := counter _;
     counter _ _;
     f _;
