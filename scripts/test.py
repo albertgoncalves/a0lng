@@ -31,8 +31,14 @@ class Tests(TestCase):
     def test_fib_rec(self):
         self.into_test("fib_rec", 13)
 
+    def test_hello_world(self):
+        self.into_test("hello_world", "\"Hello, world!\"")
+
     def test_if(self):
         self.into_test("if", -3)
+
+    def test_object(self):
+        self.into_test("object", "{\"x\": 3946}")
 
     def test_return_if(self):
         self.into_test("return_if", -123)

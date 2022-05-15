@@ -1,0 +1,7 @@
+x := _;
+(\ ->
+    return _ if 0;
+    x = "Hello, world!";
+    _
+) _;
+x

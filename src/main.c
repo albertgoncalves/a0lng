@@ -15,6 +15,9 @@ typedef enum {
     TOKEN_END,
     TOKEN_LPAREN,
     TOKEN_RPAREN,
+    TOKEN_LBRACE,
+    TOKEN_RBRACE,
+    TOKEN_DOT,
     TOKEN_BACKSLASH,
     TOKEN_ARROW,
     TOKEN_SEMICOLON,
@@ -27,6 +30,7 @@ typedef enum {
     TOKEN_DIV,
     TOKEN_IDENT,
     TOKEN_I64,
+    TOKEN_STRING,
     TOKEN_EMPTY,
     TOKEN_IF,
     TOKEN_THEN,
@@ -59,6 +63,7 @@ typedef enum {
     INTRIN_ERROR = 0,
     INTRIN_ASSIGN,
     INTRIN_UPDATE,
+    INTRIN_ACCESS,
     INTRIN_EQ,
     INTRIN_ADD,
     INTRIN_SUB,
@@ -67,20 +72,22 @@ typedef enum {
 } IntrinTag;
 
 typedef struct {
-    const Expr* expr;
-    IntrinTag   tag;
+    Expr*     expr;
+    IntrinTag tag;
 } Intrin;
 
 typedef struct {
-    const Expr* func;
-    const Expr* arg;
+    Expr* func;
+    Expr* arg;
 } Call;
 
 typedef struct {
-    const Expr* condition;
-    const Expr* if_then;
-    const Expr* if_else;
+    Expr* condition;
+    Expr* if_then;
+    Expr* if_else;
 } If;
+
+typedef struct Var Var;
 
 typedef union {
     Call   as_call;
@@ -90,6 +97,7 @@ typedef union {
     i64    as_i64;
     Intrin as_intrinsic;
     If     as_if;
+    Var*   as_object;
 } ExprBody;
 
 typedef enum {
@@ -102,6 +110,8 @@ typedef enum {
     EXPR_FN1,
     EXPR_INTRIN,
     EXPR_IF_ELSE,
+    EXPR_OBJECT,
+    EXPR_STRING,
 } ExprTag;
 
 struct Expr {
@@ -110,12 +120,11 @@ struct Expr {
     ExprList next;
 };
 
-typedef struct Var   Var;
 typedef struct Scope Scope;
 
 typedef struct {
-    Scope*      scope;
-    const Expr* expr;
+    Scope* scope;
+    Expr*  expr;
 } Env;
 
 struct Var {
@@ -140,11 +149,11 @@ typedef struct {
     Scope scopes[CAP_SCOPES];
 } Memory;
 
-static const Expr EMPTY = (Expr){
+static Expr EMPTY = (Expr){
     .tag = EXPR_EMPTY,
 };
 
-static const Expr I64_ZERO = (Expr){
+static Expr I64_ZERO = (Expr){
     .tag = EXPR_I64,
     .body = {.as_i64 = 0},
 };
@@ -174,7 +183,7 @@ static Token* alloc_token(Memory* memory) {
     return &memory->tokens[memory->len_tokens++];
 }
 
-STATIC_ASSERT(TOKEN_COUNT == 21);
+STATIC_ASSERT(TOKEN_COUNT == 25);
 
 static void tokenize(Memory* memory, String string) {
     for (u32 i = 0; i < string.len;) {
@@ -190,6 +199,12 @@ static void tokenize(Memory* memory, String string) {
             }
             break;
         }
+        case '.': {
+            Token* token = alloc_token(memory);
+            token->tag = TOKEN_DOT;
+            ++i;
+            break;
+        }
         case '(': {
             Token* token = alloc_token(memory);
             token->tag = TOKEN_LPAREN;
@@ -199,6 +214,18 @@ static void tokenize(Memory* memory, String string) {
         case ')': {
             Token* token = alloc_token(memory);
             token->tag = TOKEN_RPAREN;
+            ++i;
+            break;
+        }
+        case '{': {
+            Token* token = alloc_token(memory);
+            token->tag = TOKEN_LBRACE;
+            ++i;
+            break;
+        }
+        case '}': {
+            Token* token = alloc_token(memory);
+            token->tag = TOKEN_RBRACE;
             ++i;
             break;
         }
@@ -290,6 +317,21 @@ static void tokenize(Memory* memory, String string) {
             }
             break;
         }
+        case '"': {
+            ++i;
+            EXIT_IF(string.len <= i);
+            u32 j = i;
+            while (string.buffer[i++] != '"') {
+                EXIT_IF(string.len <= i);
+            }
+            Token* token = alloc_token(memory);
+            token->tag = TOKEN_STRING;
+            token->body.as_string = (String){
+                .buffer = &string.buffer[j],
+                .len = (i - j) - 1,
+            };
+            break;
+        }
         default: {
             if (IS_DIGIT(string.buffer[i])) {
                 i64 x = 0;
@@ -348,9 +390,16 @@ static Expr* alloc_expr(Memory* memory) {
     return expr;
 }
 
-static Expr* alloc_expr_ident(Memory* memory, String string) {
+static Expr* alloc_expr_ident(Memory* memory, String ident) {
     Expr* expr = alloc_expr(memory);
     expr->tag = EXPR_IDENT;
+    expr->body.as_string = ident;
+    return expr;
+}
+
+static Expr* alloc_expr_string(Memory* memory, String string) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_STRING;
     expr->body.as_string = string;
     return expr;
 }
@@ -368,9 +417,7 @@ static Expr* alloc_expr_empty(Memory* memory) {
     return expr;
 }
 
-static Expr* alloc_expr_call(Memory*     memory,
-                             const Expr* func,
-                             const Expr* arg) {
+static Expr* alloc_expr_call(Memory* memory, Expr* func, Expr* arg) {
     Expr* expr = alloc_expr(memory);
     expr->tag = EXPR_CALL;
     expr->body.as_call.func = func;
@@ -378,9 +425,7 @@ static Expr* alloc_expr_call(Memory*     memory,
     return expr;
 }
 
-static Expr* alloc_expr_intrinsic(Memory*     memory,
-                                  IntrinTag   tag,
-                                  const Expr* expr) {
+static Expr* alloc_expr_intrinsic(Memory* memory, IntrinTag tag, Expr* expr) {
     Expr* intrinsic = alloc_expr(memory);
     intrinsic->tag = EXPR_INTRIN;
     intrinsic->body.as_intrinsic.tag = tag;
@@ -395,10 +440,10 @@ static Expr* alloc_expr_fn0(Memory* memory, ExprList list) {
     return expr;
 }
 
-static Expr* alloc_expr_if_else(Memory*     memory,
-                                const Expr* condition,
-                                const Expr* if_then,
-                                const Expr* if_else) {
+static Expr* alloc_expr_if_else(Memory* memory,
+                                Expr*   condition,
+                                Expr*   if_then,
+                                Expr*   if_else) {
     Expr* expr = alloc_expr(memory);
     expr->tag = EXPR_IF_ELSE;
     expr->body.as_if.condition = condition;
@@ -424,6 +469,13 @@ static Scope* alloc_scope(Memory* memory) {
     return scope;
 }
 
+static Expr* alloc_expr_object(Memory* memory) {
+    Expr* expr = alloc_expr(memory);
+    expr->tag = EXPR_OBJECT;
+    expr->body.as_object = alloc_var(memory);
+    return expr;
+}
+
 static Var* lookup_var(Var* var, String label) {
     while (var) {
         if (eq(label, var->label)) {
@@ -445,12 +497,12 @@ static Var* lookup_scope(const Scope* scope, String label) {
     return NULL;
 }
 
-static void push_var(Memory* memory, Scope* scope, String label, Env env) {
+static void push_var(Memory* memory, Var** vars, String label, Env env) {
     Var* var = alloc_var(memory);
     var->label = label;
     var->env = env;
-    var->next = scope->vars;
-    scope->vars = var;
+    var->next = *vars;
+    *vars = var;
 }
 
 static Scope* push_scope(Memory* memory, Scope* parent) {
@@ -465,8 +517,18 @@ static void print_token(Token token) {
         print_string(token.body.as_string);
         break;
     }
+    case TOKEN_STRING: {
+        putchar('"');
+        print_string(token.body.as_string);
+        putchar('"');
+        break;
+    }
     case TOKEN_I64: {
         printf("%ld", token.body.as_i64);
+        break;
+    }
+    case TOKEN_DOT: {
+        putchar('.');
         break;
     }
     case TOKEN_LPAREN: {
@@ -475,6 +537,14 @@ static void print_token(Token token) {
     }
     case TOKEN_RPAREN: {
         putchar(')');
+        break;
+    }
+    case TOKEN_LBRACE: {
+        putchar('{');
+        break;
+    }
+    case TOKEN_RBRACE: {
+        putchar('}');
         break;
     }
     case TOKEN_BACKSLASH: {
@@ -603,14 +673,14 @@ static Expr* parse_expr_if_else(Memory*       memory,
     EXIT_IF((*tokens)->tag != TOKEN_IF);
     const Token* parent_if = *tokens;
     ++(*tokens);
-    const Expr* condition = parse_expr(memory, tokens, 0, parent_if);
+    Expr* condition = parse_expr(memory, tokens, 0, parent_if);
     EXIT_IF((*tokens)->tag != TOKEN_THEN);
     const Token* parent_then = *tokens;
     ++(*tokens);
-    const Expr* if_then = parse_expr(memory, tokens, 0, parent_then);
+    Expr* if_then = parse_expr(memory, tokens, 0, parent_then);
     EXIT_IF((*tokens)->tag != TOKEN_ELSE);
     ++(*tokens);
-    const Expr* if_else = parse_expr(memory, tokens, 0, parent);
+    Expr* if_else = parse_expr(memory, tokens, 0, parent);
     return alloc_expr_if_else(memory, condition, if_then, if_else);
 }
 
@@ -620,11 +690,11 @@ Expr* parse_expr_return_if(Memory*       memory,
     EXIT_IF((*tokens)->tag != TOKEN_RETURN);
     const Token* parent_return = *tokens;
     ++(*tokens);
-    const Expr* return_if = parse_expr(memory, tokens, 0, parent_return);
+    Expr* return_if = parse_expr(memory, tokens, 0, parent_return);
     EXIT_IF((*tokens)->tag != TOKEN_IF);
     const Token* parent_if = *tokens;
     ++(*tokens);
-    const Expr* condition = parse_expr(memory, tokens, 0, parent_if);
+    Expr* condition = parse_expr(memory, tokens, 0, parent_if);
     EXIT_IF((*tokens)->tag != TOKEN_SEMICOLON);
     ++(*tokens);
     return alloc_expr_if_else(
@@ -672,6 +742,11 @@ Expr* parse_expr(Memory*       memory,
         ++(*tokens);
         break;
     }
+    case TOKEN_STRING: {
+        expr = alloc_expr_string(memory, (*tokens)->body.as_string);
+        ++(*tokens);
+        break;
+    }
     case TOKEN_I64: {
         expr = alloc_expr_i64(memory, (*tokens)->body.as_i64);
         ++(*tokens);
@@ -696,7 +771,17 @@ Expr* parse_expr(Memory*       memory,
         break;
 #undef BINDING_RIGHT
     }
+    case TOKEN_LBRACE: {
+        ++(*tokens);
+        EXIT_IF((*tokens)->tag != TOKEN_RBRACE);
+        ++(*tokens);
+        expr = alloc_expr(memory);
+        expr->tag = EXPR_OBJECT;
+        break;
+    }
+    case TOKEN_DOT:
     case TOKEN_RPAREN:
+    case TOKEN_RBRACE:
     case TOKEN_ARROW:
     case TOKEN_SEMICOLON:
     case TOKEN_ASSIGN:
@@ -721,6 +806,7 @@ Expr* parse_expr(Memory*       memory,
         switch ((*tokens)->tag) {
         case TOKEN_IDENT:
         case TOKEN_I64:
+        case TOKEN_STRING:
         case TOKEN_EMPTY: {
 #define BINDING_LEFT  13
 #define BINDING_RIGHT 14
@@ -787,6 +873,10 @@ Expr* parse_expr(Memory*       memory,
             PARSE_INFIX(INTRIN_UPDATE, 4, 3);
             break;
         }
+        case TOKEN_DOT: {
+            PARSE_INFIX(INTRIN_ACCESS, 15, 16);
+            break;
+        }
 #undef PARSE_INFIX
         case TOKEN_RPAREN: {
             EXIT_IF(!parent);
@@ -815,6 +905,8 @@ Expr* parse_expr(Memory*       memory,
             EXIT_IF(parent->tag != TOKEN_RETURN);
             return expr;
         }
+        case TOKEN_LBRACE:
+        case TOKEN_RBRACE:
         case TOKEN_RETURN:
         case TOKEN_ARROW:
         case TOKEN_ERROR:
@@ -844,6 +936,10 @@ static void print_intrinsic(IntrinTag tag) {
     }
     case INTRIN_UPDATE: {
         putchar('=');
+        break;
+    }
+    case INTRIN_ACCESS: {
+        putchar('.');
         break;
     }
     case INTRIN_EQ: {
@@ -883,6 +979,12 @@ static void print_expr(const Expr* expr) {
     switch (expr->tag) {
     case EXPR_IDENT: {
         print_string(expr->body.as_string);
+        break;
+    }
+    case EXPR_STRING: {
+        putchar('"');
+        print_string(expr->body.as_string);
+        putchar('"');
         break;
     }
     case EXPR_I64: {
@@ -933,6 +1035,31 @@ static void print_expr(const Expr* expr) {
         putchar(')');
         break;
     }
+    case EXPR_OBJECT: {
+        putchar('{');
+        Var* obj = expr->body.as_object;
+        EXIT_IF(!obj);
+        if (!obj->env.expr) {
+            putchar('}');
+            break;
+        }
+        for (;;) {
+            putchar('"');
+            print_string(obj->label);
+            printf("\": ");
+            print_expr(obj->env.expr);
+            obj = obj->next;
+            if (!obj) {
+                break;
+            }
+            if (!obj->env.expr) {
+                break;
+            }
+            printf(", ");
+        }
+        putchar('}');
+        break;
+    }
     case EXPR_ERROR: {
         printf("EXPR_ERROR\n");
         EXIT();
@@ -955,12 +1082,12 @@ void print_exprs(ExprList list) {
     }
 }
 
-Env eval_expr(Memory*, Scope*, const Expr*);
+Env eval_expr(Memory*, Scope*, Expr*);
 
 static Env eval_exprs(Memory* memory, Scope* scope, ExprList list) {
     EXIT_IF(!scope);
     EXIT_IF(!list.expr);
-    const Expr* expr = list.expr;
+    Expr* expr = list.expr;
     for (;;) {
         Env env = eval_expr(memory, scope, expr);
         if (!expr->next.expr) {
@@ -972,11 +1099,11 @@ static Env eval_exprs(Memory* memory, Scope* scope, ExprList list) {
 
 #define BINOP_I64(op)                                                         \
     {                                                                         \
-        const Expr* l =                                                       \
+        Expr* l =                                                             \
             eval_expr(memory, scope, func->body.as_intrinsic.expr).expr;      \
         EXIT_IF(!l);                                                          \
         EXIT_IF(l->tag != EXPR_I64);                                          \
-        const Expr* r = arg.expr;                                             \
+        Expr* r = arg.expr;                                                   \
         EXIT_IF(!r);                                                          \
         EXIT_IF(r->tag != EXPR_I64);                                          \
         return (Env){                                                         \
@@ -985,10 +1112,10 @@ static Env eval_exprs(Memory* memory, Scope* scope, ExprList list) {
         };                                                                    \
     }
 
-static Env eval_expr_intrinsic(Memory*     memory,
-                               Scope*      scope,
-                               const Expr* func,
-                               Env         arg) {
+static Env eval_expr_intrinsic(Memory* memory,
+                               Scope*  scope,
+                               Expr*   func,
+                               Env     arg) {
     EXIT_IF(!scope);
     EXIT_IF(!func);
     EXIT_IF(!arg.expr);
@@ -996,23 +1123,71 @@ static Env eval_expr_intrinsic(Memory*     memory,
     EXIT_IF(func->body.as_intrinsic.expr->next.expr);
     switch (func->body.as_intrinsic.tag) {
     case INTRIN_ASSIGN: {
-        EXIT_IF(func->body.as_intrinsic.expr->tag != EXPR_IDENT);
-        Var* var = lookup_var(scope->vars,
-                              func->body.as_intrinsic.expr->body.as_string);
-        EXIT_IF(var);
-        push_var(memory,
-                 scope,
-                 func->body.as_intrinsic.expr->body.as_string,
-                 arg);
+        func = func->body.as_intrinsic.expr;
+        if (func->tag == EXPR_CALL) {
+            EXIT_IF(func->body.as_call.func->tag != EXPR_INTRIN);
+            EXIT_IF(func->body.as_call.func->body.as_intrinsic.tag !=
+                    INTRIN_ACCESS);
+            Expr* obj =
+                eval_expr(memory,
+                          scope,
+                          func->body.as_call.func->body.as_intrinsic.expr)
+                    .expr;
+            EXIT_IF(obj->tag != EXPR_OBJECT);
+            Expr* field =
+                eval_expr(memory, scope, func->body.as_call.arg).expr;
+            EXIT_IF(field->tag != EXPR_STRING);
+            Var* var = lookup_var(obj->body.as_object, field->body.as_string);
+            EXIT_IF(var);
+            push_var(memory, &obj->body.as_object, field->body.as_string, arg);
+        } else if (func->tag == EXPR_IDENT) {
+            Var* var = lookup_var(scope->vars, func->body.as_string);
+            EXIT_IF(var);
+            push_var(memory, &scope->vars, func->body.as_string, arg);
+        } else {
+            print_expr(func);
+            putchar('\n');
+            EXIT();
+        }
         return arg;
     }
     case INTRIN_UPDATE: {
-        EXIT_IF(func->body.as_intrinsic.expr->tag != EXPR_IDENT);
-        Var* var =
-            lookup_scope(scope, func->body.as_intrinsic.expr->body.as_string);
-        EXIT_IF(!var);
-        var->env = arg;
+        func = func->body.as_intrinsic.expr;
+        if (func->tag == EXPR_CALL) {
+            EXIT_IF(func->body.as_call.func->tag != EXPR_INTRIN);
+            EXIT_IF(func->body.as_call.func->body.as_intrinsic.tag !=
+                    INTRIN_ACCESS);
+            Expr* obj =
+                eval_expr(memory,
+                          scope,
+                          func->body.as_call.func->body.as_intrinsic.expr)
+                    .expr;
+            EXIT_IF(obj->tag != EXPR_OBJECT);
+            Expr* field =
+                eval_expr(memory, scope, func->body.as_call.arg).expr;
+            EXIT_IF(field->tag != EXPR_STRING);
+            Var* var = lookup_var(obj->body.as_object, field->body.as_string);
+            EXIT_IF(!var);
+            var->env = arg;
+        } else if (func->tag == EXPR_IDENT) {
+            Var* var = lookup_scope(scope, func->body.as_string);
+            EXIT_IF(!var);
+            var->env = arg;
+        } else {
+            print_expr(func);
+            putchar('\n');
+            EXIT();
+        }
         return arg;
+    }
+    case INTRIN_ACCESS: {
+        Expr* l = eval_expr(memory, scope, func->body.as_intrinsic.expr).expr;
+        EXIT_IF(l->tag != EXPR_OBJECT);
+        Expr* r = arg.expr;
+        EXIT_IF(r->tag != EXPR_STRING);
+        Var* var = lookup_var(l->body.as_object, r->body.as_string);
+        EXIT_IF(!var);
+        return var->env;
     }
     case INTRIN_EQ: {
         BINOP_I64(==);
@@ -1038,10 +1213,7 @@ static Env eval_expr_intrinsic(Memory*     memory,
 
 #undef BINOP_I64
 
-static Env eval_expr_call(Memory*     memory,
-                          Scope*      scope,
-                          const Expr* func,
-                          Env         arg) {
+static Env eval_expr_call(Memory* memory, Scope* scope, Expr* func, Env arg) {
     EXIT_IF(!scope);
     EXIT_IF(!func);
     EXIT_IF(!arg.expr);
@@ -1062,13 +1234,15 @@ static Env eval_expr_call(Memory*     memory,
     }
     case EXPR_FN1: {
         scope = push_scope(memory, scope);
-        push_var(memory, scope, func->body.as_fn1.label, arg);
+        push_var(memory, &scope->vars, func->body.as_fn1.label, arg);
         return eval_exprs(memory, scope, func->body.as_fn1.list);
     }
     case EXPR_INTRIN: {
         return eval_expr_intrinsic(memory, scope, func, arg);
     }
+    case EXPR_OBJECT:
     case EXPR_I64:
+    case EXPR_STRING:
     case EXPR_EMPTY:
     case EXPR_ERROR:
     default: {
@@ -1081,7 +1255,7 @@ static Env eval_expr_call(Memory*     memory,
     }
 }
 
-Env eval_expr(Memory* memory, Scope* scope, const Expr* expr) {
+Env eval_expr(Memory* memory, Scope* scope, Expr* expr) {
     EXIT_IF(!scope);
     EXIT_IF(!expr);
     switch (expr->tag) {
@@ -1101,7 +1275,7 @@ Env eval_expr(Memory* memory, Scope* scope, const Expr* expr) {
         EXIT_IF(expr->body.as_if.condition->next.expr);
         EXIT_IF(expr->body.as_if.if_then->next.expr);
         EXIT_IF(expr->body.as_if.if_else->next.expr);
-        const Expr* condition =
+        Expr* condition =
             eval_expr(memory, scope, expr->body.as_if.condition).expr;
         EXIT_IF(condition->tag != EXPR_I64);
         return eval_expr(memory,
@@ -1109,10 +1283,14 @@ Env eval_expr(Memory* memory, Scope* scope, const Expr* expr) {
                          condition->body.as_i64 ? expr->body.as_if.if_then
                                                 : expr->body.as_if.if_else);
     }
+    case EXPR_OBJECT: {
+        return (Env){.scope = scope, .expr = alloc_expr_object(memory)};
+    }
     case EXPR_I64:
     case EXPR_FN0:
     case EXPR_FN1:
     case EXPR_INTRIN:
+    case EXPR_STRING:
     case EXPR_EMPTY: {
         return (Env){.scope = scope, .expr = expr};
     }
