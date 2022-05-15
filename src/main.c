@@ -232,6 +232,12 @@ static void tokenize(Memory* memory, String string) {
             ++i;
             break;
         }
+        case '/': {
+            Token* token = alloc_token(memory);
+            token->tag = TOKEN_DIV;
+            ++i;
+            break;
+        }
         case ':': {
             EXIT_IF(!(i < string.len));
             ++i;
