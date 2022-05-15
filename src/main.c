@@ -32,6 +32,7 @@ typedef enum {
     TOKEN_THEN,
     TOKEN_ELSE,
     TOKEN_RETURN,
+    TOKEN_COUNT,
 } TokenTag;
 
 typedef struct {
@@ -172,6 +173,8 @@ static Token* alloc_token(Memory* memory) {
     EXIT_IF(CAP_TOKENS <= memory->len_tokens);
     return &memory->tokens[memory->len_tokens++];
 }
+
+STATIC_ASSERT(TOKEN_COUNT == 21);
 
 static void tokenize(Memory* memory, String string) {
     for (u32 i = 0; i < string.len;) {
@@ -536,6 +539,7 @@ static void print_token(Token token) {
         printf("TOKEN_ERROR\n");
         EXIT();
     }
+    case TOKEN_COUNT:
     default: {
         EXIT();
     }
@@ -700,6 +704,7 @@ Expr* parse_expr(Memory*       memory,
     case TOKEN_RETURN:
     case TOKEN_END:
     case TOKEN_ERROR:
+    case TOKEN_COUNT:
     default: {
         print_token(**tokens);
         putchar('\n');
@@ -807,6 +812,7 @@ Expr* parse_expr(Memory*       memory,
         case TOKEN_RETURN:
         case TOKEN_ARROW:
         case TOKEN_ERROR:
+        case TOKEN_COUNT:
         default: {
             print_token(**tokens);
             putchar('\n');

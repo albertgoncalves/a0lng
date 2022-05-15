@@ -28,6 +28,8 @@ typedef int64_t  i64;
         _exit(ERROR);                                                        \
     }
 
+#define STATIC_ASSERT(condition) _Static_assert(condition, "!(" #condition ")")
+
 typedef struct stat FileStat;
 
 typedef enum {
