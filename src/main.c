@@ -1,9 +1,9 @@
 #include "prelude.h"
 
-#define CAP_TOKENS (1 << 7)
-#define CAP_EXPRS  (1 << 8)
-#define CAP_VARS   (1 << 6)
-#define CAP_SCOPES (1 << 7)
+#define CAP_TOKENS (1 << 8)
+#define CAP_EXPRS  (1 << 9)
+#define CAP_VARS   (1 << 9)
+#define CAP_SCOPES (1 << 8)
 
 typedef union {
     String as_string;

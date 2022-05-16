@@ -1,0 +1,46 @@
+list := (\x -> \f ->
+    l := {};
+    l."head" := x;
+    l."thunk" := (\f ->
+        l := {};
+        l."cached" := 0;
+        l."result" := _;
+        l."func" := f;
+        l
+    ) f;
+    l."tail" := (\ -> force l."thunk");
+    l
+);
+
+force := (\l ->
+    return l."result" if l."cached";
+    l."result" = l."func" _;
+    l."func" = _;
+    l."cached" = 1;
+    l."result"
+);
+
+drop := (\n -> \l ->
+    loop := (\n ->
+        return l if n == 0;
+        l = l."tail" _;
+        loop (n - 1)
+    );
+    loop n
+);
+
+zipWith := (\f -> \l0 -> \l1 ->
+    list
+        (f l0."head" l1."head")
+        (\ -> zipWith f (l0."tail" _) (l1."tail" _))
+);
+
+fibs := list 0 (\ ->
+    list 1 (\ ->
+        zipWith (\a -> \b -> a + b) fibs (fibs."tail" _)
+    )
+);
+
+(\ ->
+    (drop 13 fibs)."head"
+) _

@@ -25,6 +25,9 @@ class Tests(TestCase):
     def test_curry(self):
         self.into_test("curry", 1)
 
+    def test_fib_lazy(self):
+        self.into_test("fib_lazy", 233)
+
     def test_fib_loop(self):
         self.into_test("fib_loop", 6766)
 
