@@ -1,23 +1,12 @@
 list := (\x -> \f ->
     l := {};
     l."head" := x;
-    l."thunk" := (\f ->
-        l := {};
-        l."cached" := 0;
-        l."result" := _;
-        l."func" := f;
-        l
-    ) f;
-    l."tail" := (\ -> force l."thunk");
+    l."tail" := (\ ->
+        x := f _;
+        l."tail" = (\ -> x);
+        x
+    );
     l
-);
-
-force := (\l ->
-    return l."result" if l."cached";
-    l."result" = l."func" _;
-    l."func" = _;
-    l."cached" = 1;
-    l."result"
 );
 
 drop := (\n -> \l ->
