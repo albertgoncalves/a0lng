@@ -1,7 +1,7 @@
-x := _;
+x := ();
 (\ ->
-    return _ if 0;
+    return () if 0;
     x = "Hello, world!";
-    _
-) _;
+    ()
+) ();
 x

@@ -2,7 +2,7 @@ list := (\x -> \f ->
     l := {};
     l."head" := x;
     l."tail" := (\ ->
-        x := f _;
+        x := f ();
         l."tail" = (\ -> x);
         x
     );
@@ -12,7 +12,7 @@ list := (\x -> \f ->
 drop := (\n -> \l ->
     loop := (\n ->
         return l if n == 0;
-        l = l."tail" _;
+        l = l."tail" ();
         loop (n - 1)
     );
     loop n
@@ -21,15 +21,15 @@ drop := (\n -> \l ->
 zipWith := (\f -> \l0 -> \l1 ->
     list
         (f l0."head" l1."head")
-        (\ -> zipWith f (l0."tail" _) (l1."tail" _))
+        (\ -> zipWith f (l0."tail" ()) (l1."tail" ()))
 );
 
 fibs := list 0 (\ ->
     list 1 (\ ->
-        zipWith (\a -> \b -> a + b) fibs (fibs."tail" _)
+        zipWith (\a -> \b -> a + b) fibs (fibs."tail" ())
     )
 );
 
 (\ ->
     (drop 45 fibs)."head"
-) _
+) ()

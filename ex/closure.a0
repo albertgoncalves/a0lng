@@ -7,8 +7,8 @@
         f
     );
     i := 10;
-    f := counter _;
-    counter _ _;
-    f _;
-    f _
-) _
+    f := counter ();
+    counter () ();
+    f ();
+    f ()
+) ()

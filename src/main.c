@@ -31,7 +31,6 @@ typedef enum {
     TOKEN_IDENT,
     TOKEN_I64,
     TOKEN_STRING,
-    TOKEN_EMPTY,
     TOKEN_IF,
     TOKEN_THEN,
     TOKEN_ELSE,
@@ -183,7 +182,7 @@ static Token* alloc_token(Memory* memory) {
     return &memory->tokens[memory->len_tokens++];
 }
 
-STATIC_ASSERT(TOKEN_COUNT == 25);
+STATIC_ASSERT(TOKEN_COUNT == 24);
 
 static void tokenize(Memory* memory, String string) {
     for (u32 i = 0; i < string.len;) {
@@ -238,12 +237,6 @@ static void tokenize(Memory* memory, String string) {
         case ';': {
             Token* token = alloc_token(memory);
             token->tag = TOKEN_SEMICOLON;
-            ++i;
-            break;
-        }
-        case '_': {
-            Token* token = alloc_token(memory);
-            token->tag = TOKEN_EMPTY;
             ++i;
             break;
         }
@@ -587,10 +580,6 @@ static void print_token(Token token) {
         putchar('/');
         break;
     }
-    case TOKEN_EMPTY: {
-        putchar('_');
-        break;
-    }
     case TOKEN_IF: {
         printf("if");
         break;
@@ -732,7 +721,9 @@ Expr* parse_expr(Memory*       memory,
     case TOKEN_LPAREN: {
         const Token* parent_paren = *tokens;
         ++(*tokens);
-        expr = parse_expr(memory, tokens, 0, parent_paren);
+        expr = (*tokens)->tag == TOKEN_RPAREN
+                   ? alloc_expr_empty(memory)
+                   : parse_expr(memory, tokens, 0, parent_paren);
         EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
         ++(*tokens);
         break;
@@ -754,11 +745,6 @@ Expr* parse_expr(Memory*       memory,
     }
     case TOKEN_BACKSLASH: {
         expr = parse_expr_fn(memory, tokens, parent);
-        break;
-    }
-    case TOKEN_EMPTY: {
-        expr = alloc_expr_empty(memory);
-        ++(*tokens);
         break;
     }
     case TOKEN_SUB: {
@@ -806,8 +792,7 @@ Expr* parse_expr(Memory*       memory,
         switch ((*tokens)->tag) {
         case TOKEN_IDENT:
         case TOKEN_I64:
-        case TOKEN_STRING:
-        case TOKEN_EMPTY: {
+        case TOKEN_STRING: {
 #define BINDING_LEFT  13
 #define BINDING_RIGHT 14
             if (BINDING_LEFT < binding) {
@@ -825,10 +810,12 @@ Expr* parse_expr(Memory*       memory,
             }
             const Token* parent_paren = *tokens;
             ++(*tokens);
-            expr =
-                alloc_expr_call(memory,
-                                expr,
-                                parse_expr(memory, tokens, 0, parent_paren));
+            expr = alloc_expr_call(
+                memory,
+                expr,
+                (*tokens)->tag == TOKEN_RPAREN
+                    ? alloc_expr_empty(memory)
+                    : parse_expr(memory, tokens, 0, parent_paren));
             EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
             ++(*tokens);
             break;
