@@ -2,8 +2,8 @@
 
 #define CAP_TOKENS (1 << 8)
 #define CAP_EXPRS  (1 << 9)
-#define CAP_VARS   (1 << 9)
-#define CAP_SCOPES (1 << 8)
+#define CAP_VARS   (1 << 10)
+#define CAP_SCOPES (1 << 10)
 
 typedef union {
     String as_string;
@@ -472,7 +472,7 @@ static Scope* alloc_scope(Memory* memory) {
 static Expr* alloc_expr_object(Memory* memory) {
     Expr* expr = alloc_expr(memory);
     expr->tag = EXPR_OBJECT;
-    expr->body.as_object = alloc_var(memory);
+    expr->body.as_object = NULL;
     return expr;
 }
 

@@ -26,13 +26,13 @@ class Tests(TestCase):
         self.into_test("curry", 1)
 
     def test_fib_lazy(self):
-        self.into_test("fib_lazy", 233)
+        self.into_test("fib_lazy", 1134903170)
 
     def test_fib_loop(self):
-        self.into_test("fib_loop", 6766)
+        self.into_test("fib_loop", 1134903171)
 
     def test_fib_rec(self):
-        self.into_test("fib_rec", 13)
+        self.into_test("fib_rec", 34)
 
     def test_hello_world(self):
         self.into_test("hello_world", "\"Hello, world!\"")

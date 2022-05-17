@@ -31,5 +31,5 @@ fibs := list 0 (\ ->
 );
 
 (\ ->
-    (drop 13 fibs)."head"
+    (drop 45 fibs)."head"
 ) _
