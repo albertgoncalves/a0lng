@@ -1,5 +1,6 @@
 #include "prelude.h"
 
+#define CAP_BUFFER (1 << 6)
 #define CAP_TOKENS (1 << 8)
 #define CAP_EXPRS  (1 << 9)
 #define CAP_VARS   (1 << 10)
@@ -68,6 +69,8 @@ typedef enum {
     INTRIN_SUB,
     INTRIN_MUL,
     INTRIN_DIV,
+    INTRIN_PRINT,
+    INTRIN_TOSTRING,
 } IntrinTag;
 
 typedef struct {
@@ -138,10 +141,12 @@ struct Scope {
 };
 
 typedef struct {
+    u32   len_buffer;
     u32   len_tokens;
     u32   len_exprs;
     u32   len_vars;
     u32   len_scopes;
+    char  buffer[CAP_BUFFER];
     Token tokens[CAP_TOKENS];
     Expr  exprs[CAP_EXPRS];
     Var   vars[CAP_VARS];
@@ -175,6 +180,18 @@ static Memory* alloc_memory(void) {
     Memory* memory = (Memory*)address;
     memset(memory, 0, sizeof(Memory));
     return memory;
+}
+
+static char* alloc_buffer(Memory* memory, u32 len) {
+    EXIT_IF(CAP_BUFFER < (memory->len_buffer + len));
+    char* buffer = &memory->buffer[memory->len_buffer];
+    memory->len_buffer += len;
+    return buffer;
+}
+
+static void push_buffer(Memory* memory, char x) {
+    EXIT_IF(CAP_BUFFER <= memory->len_buffer);
+    memory->buffer[memory->len_buffer++] = x;
 }
 
 static Token* alloc_token(Memory* memory) {
@@ -313,16 +330,42 @@ static void tokenize(Memory* memory, String string) {
         case '"': {
             ++i;
             EXIT_IF(string.len <= i);
-            u32 j = i;
-            while (string.buffer[i++] != '"') {
-                EXIT_IF(string.len <= i);
-            }
             Token* token = alloc_token(memory);
             token->tag = TOKEN_STRING;
             token->body.as_string = (String){
-                .buffer = &string.buffer[j],
-                .len = (i - j) - 1,
+                .buffer = &memory->buffer[memory->len_buffer],
+                .len = 0,
             };
+            while (string.buffer[i] != '"') {
+                if (string.buffer[i] == '\\') {
+                    EXIT_IF(string.len <= (i + 1));
+                    switch (string.buffer[i + 1]) {
+                    case 'n': {
+                        push_buffer(memory, '\n');
+                        ++token->body.as_string.len;
+                        i += 2;
+                        continue;
+                    }
+                    case '"': {
+                        push_buffer(memory, '"');
+                        ++token->body.as_string.len;
+                        i += 2;
+                        continue;
+                    }
+                    case '\\': {
+                        push_buffer(memory, '\\');
+                        ++token->body.as_string.len;
+                        i += 2;
+                        continue;
+                    }
+                    }
+                }
+                push_buffer(memory, string.buffer[i]);
+                ++token->body.as_string.len;
+                ++i;
+                EXIT_IF(string.len <= i);
+            }
+            ++i;
             break;
         }
         default: {
@@ -502,6 +545,19 @@ static Scope* push_scope(Memory* memory, Scope* parent) {
     Scope* child = alloc_scope(memory);
     child->next = parent;
     return child;
+}
+
+static void push_intrin(Memory*   memory,
+                        Scope*    scope,
+                        String    string,
+                        IntrinTag tag) {
+    push_var(memory,
+             &scope->vars,
+             string,
+             (Env){
+                 .scope = scope,
+                 .expr = alloc_expr_intrinsic(memory, tag, &EMPTY),
+             });
 }
 
 static void print_token(Token token) {
@@ -792,7 +848,9 @@ Expr* parse_expr(Memory*       memory,
         switch ((*tokens)->tag) {
         case TOKEN_IDENT:
         case TOKEN_I64:
-        case TOKEN_STRING: {
+        case TOKEN_LPAREN:
+        case TOKEN_STRING:
+        case TOKEN_BACKSLASH: {
 #define BINDING_LEFT  13
 #define BINDING_RIGHT 14
             if (BINDING_LEFT < binding) {
@@ -802,32 +860,6 @@ Expr* parse_expr(Memory*       memory,
                 memory,
                 expr,
                 parse_expr(memory, tokens, BINDING_RIGHT, parent));
-            break;
-        }
-        case TOKEN_LPAREN: {
-            if (BINDING_LEFT < binding) {
-                return expr;
-            }
-            const Token* parent_paren = *tokens;
-            ++(*tokens);
-            expr = alloc_expr_call(
-                memory,
-                expr,
-                (*tokens)->tag == TOKEN_RPAREN
-                    ? alloc_expr_empty(memory)
-                    : parse_expr(memory, tokens, 0, parent_paren));
-            EXIT_IF((*tokens)->tag != TOKEN_RPAREN);
-            ++(*tokens);
-            break;
-        }
-        case TOKEN_BACKSLASH: {
-            if (BINDING_LEFT < binding) {
-                return expr;
-            }
-            ++(*tokens);
-            expr = alloc_expr_call(memory,
-                                   expr,
-                                   parse_expr_fn(memory, tokens, parent));
             break;
 #undef BINDING_LEFT
 #undef BINDING_RIGHT
@@ -949,6 +981,14 @@ static void print_intrinsic(IntrinTag tag) {
         putchar('/');
         break;
     }
+    case INTRIN_PRINT: {
+        printf("print");
+        break;
+    }
+    case INTRIN_TOSTRING: {
+        printf("toString");
+        break;
+    }
     case INTRIN_ERROR: {
         printf("INTRIN_ERROR\n");
         EXIT();
@@ -1025,8 +1065,7 @@ static void print_expr(const Expr* expr) {
     case EXPR_OBJECT: {
         putchar('{');
         Var* obj = expr->body.as_object;
-        EXIT_IF(!obj);
-        if (!obj->env.expr) {
+        if ((!obj) || (!obj->env.expr)) {
             putchar('}');
             break;
         }
@@ -1176,6 +1215,20 @@ static Env eval_expr_intrinsic(Memory* memory,
         EXIT_IF(!var);
         return var->env;
     }
+    case INTRIN_PRINT: {
+        EXIT_IF(arg.expr->tag != EXPR_STRING);
+        print_string(arg.expr->body.as_string);
+        return arg;
+    }
+    case INTRIN_TOSTRING: {
+        EXIT_IF(arg.expr->tag != EXPR_I64);
+        u32   len = (u32)snprintf(NULL, 0, "%ld", arg.expr->body.as_i64) + 1;
+        char* buffer = alloc_buffer(memory, len);
+        snprintf(buffer, len, "%ld", arg.expr->body.as_i64);
+        arg.expr =
+            alloc_expr_string(memory, (String){.buffer = buffer, .len = len});
+        return arg;
+    }
     case INTRIN_EQ: {
         BINOP_I64(==);
     }
@@ -1293,7 +1346,9 @@ i32 main(i32 n, const char** args) {
     Memory* memory = alloc_memory();
     tokenize(memory, path_to_string(args[1]));
     ExprList list = parse(memory);
-    print_expr(eval_exprs(memory, alloc_scope(memory), list).expr);
-    putchar('\n');
+    Scope*   scope = alloc_scope(memory);
+    push_intrin(memory, scope, STRING("print"), INTRIN_PRINT);
+    push_intrin(memory, scope, STRING("toString"), INTRIN_TOSTRING);
+    eval_exprs(memory, scope, list);
     return OK;
 }

@@ -31,5 +31,6 @@ fibs := list 0 (\ ->
 );
 
 (\ ->
-    (drop 45 fibs)."head"
+    print (toString (drop 45 fibs)."head");
+    print "\n"
 ) ()

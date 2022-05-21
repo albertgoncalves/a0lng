@@ -4,4 +4,5 @@ fib := (\n ->
     fib (n - 2) + fib (n - 1)
 );
 
-fib 9
+print (toString (fib 9));
+print "\n"

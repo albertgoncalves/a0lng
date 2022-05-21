@@ -10,5 +10,6 @@
     f := counter ();
     counter () ();
     f ();
-    f ()
+    print (toString (f ()));
+    print "\n"
 ) ()

@@ -10,4 +10,5 @@ fib := (\ ->
     )
 );
 
-fib () 45 + fib () 1
+print (toString (fib () 45 + fib () 1));
+print "\n"

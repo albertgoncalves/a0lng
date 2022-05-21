@@ -4,4 +4,5 @@ ackermannPeter := (\m -> \n ->
     ackermannPeter (m - 1) (ackermannPeter m (n - 1))
 );
 
-ackermannPeter 2 2
+print (toString (ackermannPeter 2 2));
+print "\n"

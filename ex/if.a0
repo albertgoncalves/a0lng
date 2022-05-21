@@ -9,5 +9,6 @@
         else
             a
     );
-    a
+    print (toString a);
+    print "\n"
 ) ()

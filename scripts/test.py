@@ -41,7 +41,7 @@ class Tests(TestCase):
         self.into_test("if", -3)
 
     def test_object(self):
-        self.into_test("object", "{\"x\": 3946}")
+        self.into_test("object", 3946)
 
     def test_return_if(self):
         self.into_test("return_if", -123)

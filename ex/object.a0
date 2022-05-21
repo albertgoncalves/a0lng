@@ -24,5 +24,6 @@ obj := (\ ->
     ) ();
     y := {};
     y."x" := x."obj"."f1" 789 / 2 + x . "???";
-    y
+    print (toString y."x");
+    print "\n"
 ) ()

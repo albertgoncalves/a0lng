@@ -1,7 +1,7 @@
 x := ();
 (\ ->
     return () if 0;
-    x = "Hello, world!";
+    x = "\"Hello, world!\"\n";
     ()
 ) ();
-x
+print x
