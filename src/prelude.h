@@ -72,4 +72,13 @@ static String path_to_string(const char* path) {
     return string;
 }
 
+static u32 i64_to_len(i64 x) {
+    u32 len = 0;
+    do {
+        ++len;
+        x /= 10;
+    } while (x);
+    return len;
+}
+
 #endif

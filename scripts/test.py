@@ -29,7 +29,7 @@ class Tests(TestCase):
         self.into_test("fib_lazy", 1134903170)
 
     def test_fib_loop(self):
-        self.into_test("fib_loop", 1134903171)
+        self.into_test("fib_loop", -1134903171)
 
     def test_fib_rec(self):
         self.into_test("fib_rec", 34)

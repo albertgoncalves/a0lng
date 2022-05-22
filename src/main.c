@@ -219,16 +219,31 @@ static void print_row_col(Memory* memory, u32 offset) {
         _exit(ERROR);                                                        \
     }
 
-static char* alloc_buffer(Memory* memory, u32 len) {
-    EXIT_IF(CAP_BUFFER < (memory->len_buffer + len));
-    char* buffer = &memory->buffer[memory->len_buffer];
-    memory->len_buffer += len;
-    return buffer;
-}
-
 static void push_buffer(Memory* memory, char x) {
     EXIT_IF(CAP_BUFFER <= memory->len_buffer);
     memory->buffer[memory->len_buffer++] = x;
+}
+
+static String i64_to_string(Memory* memory, i64 x) {
+    u32    len = i64_to_len(x);
+    char*  buffer = &memory->buffer[memory->len_buffer];
+    String string = {
+        .buffer = buffer,
+        .len = len,
+    };
+    if (x < 0) {
+        push_buffer(memory, '-');
+        ++string.len;
+        ++buffer;
+        x = -x;
+    }
+    EXIT_IF(CAP_BUFFER < (memory->len_buffer + len));
+    for (u32 i = 0; i < len; ++i) {
+        buffer[(len - i) - 1] = '0' + ((char)(x % 10));
+        x /= 10;
+    }
+    memory->len_buffer += string.len;
+    return string;
 }
 
 static Token* alloc_token(Memory* memory, TokenTag tag, u32 offset) {
@@ -1180,12 +1195,10 @@ static Env eval_expr_intrinsic(Memory* memory,
     case INTRIN_TOSTRING: {
         // NOTE: Is this the right `offset`?
         EXIT_IF_LOC(arg.expr->tag != EXPR_I64, memory, offset);
-        u32   len = (u32)snprintf(NULL, 0, "%ld", arg.expr->body.as_i64) + 1;
-        char* buffer = alloc_buffer(memory, len);
-        snprintf(buffer, len, "%ld", arg.expr->body.as_i64);
-        arg.expr = alloc_expr_string(memory,
-                                     (String){.buffer = buffer, .len = len},
-                                     offset);
+        arg.expr =
+            alloc_expr_string(memory,
+                              i64_to_string(memory, arg.expr->body.as_i64),
+                              offset);
         return arg;
     }
     case INTRIN_EQ: {
