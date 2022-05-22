@@ -21,13 +21,13 @@ drop := (\n -> \l ->
 zipWith := (\f -> \l0 -> \l1 ->
     list
         (f l0."head" l1."head")
-        (\ -> zipWith f (l0."tail" ()) (l1."tail" ()))
+        \ -> zipWith f (l0."tail" ()) (l1."tail" ())
 );
 
-fibs := list 0 (\ ->
-    list 1 (\ ->
-        zipWith (\a -> \b -> a + b) fibs (fibs."tail" ())
-    )
+fibs := (
+    list 0 \ ->
+        list 1 \ ->
+            zipWith (\a -> \b -> a + b) fibs (fibs."tail" ())
 );
 
 (\ ->
