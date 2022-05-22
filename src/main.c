@@ -1075,10 +1075,7 @@ static void print_expr(const Expr* expr) {
             printf("\": ");
             print_expr(obj->env.expr);
             obj = obj->next;
-            if (!obj) {
-                break;
-            }
-            if (!obj->env.expr) {
+            if ((!obj) || (!obj->env.expr)) {
                 break;
             }
             printf(", ");
