@@ -854,19 +854,19 @@ Expr* parse_expr(Memory*       memory,
         }
 #undef PARSE_INFIX
         case TOKEN_RPAREN: {
-            EXIT_IF(!parent);
+            EXIT_IF_LOC(!parent, memory, (*tokens)->offset);
             EXIT_IF_LOC(parent->tag != TOKEN_LPAREN,
                         memory,
                         (*tokens)->offset);
             return expr;
         }
         case TOKEN_THEN: {
-            EXIT_IF(!parent);
+            EXIT_IF_LOC(!parent, memory, (*tokens)->offset);
             EXIT_IF_LOC(parent->tag != TOKEN_IF, memory, (*tokens)->offset);
             return expr;
         }
         case TOKEN_ELSE: {
-            EXIT_IF(!parent);
+            EXIT_IF_LOC(!parent, memory, (*tokens)->offset);
             EXIT_IF_LOC(parent->tag != TOKEN_THEN, memory, (*tokens)->offset);
             return expr;
         }
@@ -878,7 +878,7 @@ Expr* parse_expr(Memory*       memory,
             return expr;
         }
         case TOKEN_IF: {
-            EXIT_IF(!parent);
+            EXIT_IF_LOC(!parent, memory, (*tokens)->offset);
             EXIT_IF_LOC(parent->tag != TOKEN_RETURN,
                         memory,
                         (*tokens)->offset);
@@ -1116,11 +1116,11 @@ static Env eval_expr_intrinsic(Memory* memory,
         if (func->tag == EXPR_CALL) {
             EXIT_IF_LOC(func->body.as_call.func->tag != EXPR_INTRIN,
                         memory,
-                        func->body.as_call.func->offset);
+                        func->offset);
             EXIT_IF_LOC(func->body.as_call.func->body.as_intrinsic.tag !=
                             INTRIN_ACCESS,
                         memory,
-                        func->body.as_call.func->offset);
+                        func->offset);
             Expr* obj =
                 eval_expr(memory,
                           scope,
@@ -1149,11 +1149,11 @@ static Env eval_expr_intrinsic(Memory* memory,
         if (func->tag == EXPR_CALL) {
             EXIT_IF_LOC(func->body.as_call.func->tag != EXPR_INTRIN,
                         memory,
-                        func->body.as_call.func->offset);
+                        func->offset);
             EXIT_IF_LOC(func->body.as_call.func->body.as_intrinsic.tag !=
                             INTRIN_ACCESS,
                         memory,
-                        func->body.as_call.func->offset);
+                        func->offset);
             Expr* obj =
                 eval_expr(memory,
                           scope,
@@ -1266,7 +1266,7 @@ static Env eval_expr_call(Memory* memory,
     case EXPR_EMPTY:
     case EXPR_ERROR:
     default: {
-        EXIT_LOC(memory, func->offset);
+        EXIT_LOC(memory, offset);
     }
     }
 }
