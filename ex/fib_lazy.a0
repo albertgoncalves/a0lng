@@ -10,12 +10,10 @@ list := (\x -> \f ->
 );
 
 drop := (\n -> \l ->
-    loop := (\n ->
-        return l if n == 0;
-        l = l."tail" ();
-        loop (n - 1)
-    );
-    loop n
+    if n == 0 then
+        l
+    else
+        drop (n - 1) (l."tail" ())
 );
 
 zipWith := (\f -> \l0 -> \l1 ->
