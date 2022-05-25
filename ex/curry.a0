@@ -1,5 +1,5 @@
 (\ ->
-    f0 := (\a -> \b -> -a - -b);
+    f0 := (\a b -> -a - -b);
     f1 := f0 1;
     s := toString;
     p := print;

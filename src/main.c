@@ -631,28 +631,45 @@ static ExprList parse_exprs(Memory*       memory,
     }
 }
 
-static Expr* parse_expr_fn(Memory*       memory,
-                           const Token** tokens,
-                           const Token*  parent) {
-    EXIT_IF_LOC((*tokens)->tag != TOKEN_BACKSLASH, memory, (*tokens)->offset);
+static Expr* parse_expr_fn0(Memory*       memory,
+                            const Token** tokens,
+                            const Token*  parent) {
+    EXIT_IF_LOC((*tokens)->tag != TOKEN_ARROW, memory, (*tokens)->offset);
     u32 offset = (*tokens)->offset;
     ++(*tokens);
-    if ((*tokens)->tag != TOKEN_IDENT) {
-        EXIT_IF_LOC((*tokens)->tag != TOKEN_ARROW, memory, (*tokens)->offset);
-        ++(*tokens);
-        return alloc_expr_fn0(memory,
-                              parse_exprs(memory, tokens, parent),
-                              offset);
-    }
+    return alloc_expr_fn0(memory, parse_exprs(memory, tokens, parent), offset);
+}
+
+static Expr* parse_expr_fn1(Memory*       memory,
+                            const Token** tokens,
+                            const Token*  parent) {
     EXIT_IF_LOC((*tokens)->tag != TOKEN_IDENT, memory, (*tokens)->offset);
+    u32   offset = (*tokens)->offset;
     Expr* expr = alloc_expr(memory, offset);
     expr->tag = EXPR_FN1;
     expr->body.as_fn1.label = (*tokens)->body.as_string;
     ++(*tokens);
+    if ((*tokens)->tag == TOKEN_IDENT) {
+        expr->body.as_fn1.list = (ExprList){
+            .expr = parse_expr_fn1(memory, tokens, parent),
+        };
+        return expr;
+    }
     EXIT_IF_LOC((*tokens)->tag != TOKEN_ARROW, memory, (*tokens)->offset);
     ++(*tokens);
     expr->body.as_fn1.list = parse_exprs(memory, tokens, parent);
     return expr;
+}
+
+static Expr* parse_expr_fn(Memory*       memory,
+                           const Token** tokens,
+                           const Token*  parent) {
+    EXIT_IF_LOC((*tokens)->tag != TOKEN_BACKSLASH, memory, (*tokens)->offset);
+    ++(*tokens);
+    if ((*tokens)->tag != TOKEN_IDENT) {
+        return parse_expr_fn0(memory, tokens, parent);
+    }
+    return parse_expr_fn1(memory, tokens, parent);
 }
 
 static Expr* parse_expr_if_else(Memory*       memory,

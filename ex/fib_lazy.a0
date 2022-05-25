@@ -1,4 +1,4 @@
-list := (\x -> \f ->
+list := (\x f ->
     l := {};
     l."head" := x;
     l."tail" := (\ ->
@@ -9,14 +9,14 @@ list := (\x -> \f ->
     l
 );
 
-drop := (\n -> \l ->
+drop := (\n l ->
     if n == 0 then
         l
     else
         drop (n - 1) (l."tail" ())
 );
 
-zipWith := (\f -> \l0 -> \l1 ->
+zipWith := (\f l0 l1 ->
     list
         (f l0."head" l1."head")
         \ -> zipWith f (l0."tail" ()) (l1."tail" ())
