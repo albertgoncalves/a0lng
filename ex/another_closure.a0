@@ -1,0 +1,12 @@
+f := (\x ->
+    g := (\ ->
+        x
+    );
+    g
+);
+
+a := f 1;
+b := f (-2);
+
+print (toString (a () + b ()));
+print "\n"

@@ -19,6 +19,9 @@ class Tests(TestCase):
     def test_ackermann_peter(self):
         self.into_test("ackermann_peter", 7)
 
+    def test_another_closure(self):
+        self.into_test("another_closure", -1)
+
     def test_closure(self):
         self.into_test("closure", 2)
 
