@@ -31,6 +31,9 @@ class Tests(TestCase):
     def test_curry(self):
         self.into_test("curry", 1)
 
+    def test_even_odd(self):
+        self.into_test("even_odd", "123 is odd")
+
     def test_fib_lazy(self):
         self.into_test("fib_lazy", 1134903170)
 

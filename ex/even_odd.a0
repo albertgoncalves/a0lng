@@ -1,0 +1,21 @@
+even := (\n ->
+    return 1 if n == 0;
+    odd (n - 1)
+);
+
+odd := (\n ->
+    return 0 if n == 0;
+    even (n - 1)
+);
+
+f := (\n ->
+    print (toString n);
+    print " is ";
+    if even n then
+        print "even"
+    else
+        print "odd";
+    print "\n"
+);
+
+f 123
