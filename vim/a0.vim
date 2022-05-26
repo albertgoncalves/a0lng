@@ -17,7 +17,7 @@ syn region String start=+"+ skip=+\\"+ end=+"+ contains=a0Special
 hi def link a0Special SpecialChar
 
 " NOTE: See `http://vimdoc.sourceforge.net/htmldoc/syntax.html`.
-syn keyword Conditional
+syn keyword Statement
     \ if
     \ then
     \ else
