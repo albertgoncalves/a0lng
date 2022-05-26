@@ -644,8 +644,7 @@ static Expr* parse_expr_fn1(Memory*       memory,
                             const Token** tokens,
                             const Token*  parent) {
     EXIT_IF_LOC((*tokens)->tag != TOKEN_IDENT, memory, (*tokens)->offset);
-    u32   offset = (*tokens)->offset;
-    Expr* expr = alloc_expr(memory, offset);
+    Expr* expr = alloc_expr(memory, (*tokens)->offset);
     expr->tag = EXPR_FN1;
     expr->body.as_fn1.label = (*tokens)->body.as_string;
     ++(*tokens);
