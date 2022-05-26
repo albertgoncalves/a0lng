@@ -25,6 +25,9 @@ class Tests(TestCase):
     def test_closure(self):
         self.into_test("closure", 2)
 
+    def test_collatz(self):
+        self.into_test("collatz", "3\n10\n5\n16\n8\n4\n2\n1")
+
     def test_curry(self):
         self.into_test("curry", 1)
 

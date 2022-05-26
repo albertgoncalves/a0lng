@@ -1,0 +1,12 @@
+collatz := (\n ->
+    print (toString n);
+    print "\n";
+    if n == 1 then
+        n
+    else if n % 2 == 0 then
+        collatz (n / 2)
+    else
+        collatz (3 * n + 1)
+);
+
+collatz 3

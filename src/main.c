@@ -29,6 +29,7 @@ typedef enum {
     TOKEN_SUB,
     TOKEN_MUL,
     TOKEN_DIV,
+    TOKEN_MOD,
     TOKEN_IDENT,
     TOKEN_I64,
     TOKEN_STRING,
@@ -70,6 +71,7 @@ typedef enum {
     INTRIN_SUB,
     INTRIN_MUL,
     INTRIN_DIV,
+    INTRIN_MOD,
     INTRIN_PRINT,
     INTRIN_TOSTRING,
 } IntrinTag;
@@ -254,7 +256,7 @@ static Token* alloc_token(Memory* memory, TokenTag tag, u32 offset) {
     return token;
 }
 
-STATIC_ASSERT(TOKEN_COUNT == 24);
+STATIC_ASSERT(TOKEN_COUNT == 25);
 
 static void tokenize(Memory* memory) {
     u32 i;
@@ -310,6 +312,10 @@ static void tokenize(Memory* memory) {
         }
         case '/': {
             alloc_token(memory, TOKEN_DIV, i++);
+            break;
+        }
+        case '%': {
+            alloc_token(memory, TOKEN_MOD, i++);
             break;
         }
         case ':': {
@@ -806,6 +812,7 @@ Expr* parse_expr(Memory*       memory,
     case TOKEN_ADD:
     case TOKEN_MUL:
     case TOKEN_DIV:
+    case TOKEN_MOD:
     case TOKEN_THEN:
     case TOKEN_ELSE:
     case TOKEN_RETURN:
@@ -850,6 +857,10 @@ Expr* parse_expr(Memory*       memory,
         }
         case TOKEN_DIV: {
             PARSE_INFIX(INTRIN_DIV, 9, 10);
+            break;
+        }
+        case TOKEN_MOD: {
+            PARSE_INFIX(INTRIN_MOD, 9, 10);
             break;
         }
         case TOKEN_EQ: {
@@ -955,6 +966,10 @@ static void print_intrinsic(IntrinTag tag) {
     }
     case INTRIN_DIV: {
         putchar('/');
+        break;
+    }
+    case INTRIN_MOD: {
+        putchar('%');
         break;
     }
     case INTRIN_PRINT: {
@@ -1231,6 +1246,9 @@ static Env eval_expr_intrinsic(Memory* memory,
     }
     case INTRIN_DIV: {
         BINOP_I64(/);
+    }
+    case INTRIN_MOD: {
+        BINOP_I64(%);
     }
     case INTRIN_ERROR:
     default: {
