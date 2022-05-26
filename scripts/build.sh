@@ -18,7 +18,7 @@ flags=(
     "-fsanitize=undefined"
     -fshort-enums
     "-march=native"
-    -O1
+    -O0
     "-std=c99"
     -Werror
     -Weverything
