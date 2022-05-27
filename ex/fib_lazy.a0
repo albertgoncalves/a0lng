@@ -25,7 +25,7 @@ zipWith := (\f l0 l1 ->
 fibs := (
     list 0 \ ->
         list 1 \ ->
-            zipWith (\a -> \b -> a + b) fibs (fibs."tail" ())
+            zipWith (\a b -> a + b) fibs (fibs."tail" ())
 );
 
 (\ ->
