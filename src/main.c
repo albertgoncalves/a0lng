@@ -1173,6 +1173,7 @@ static Env eval_expr_intrinsic(Memory* memory,
         } else {
             EXIT_LOC(memory, func->offset);
         }
+        arg.expr = &EMPTY;
         return arg;
     }
     case INTRIN_UPDATE: {
@@ -1205,6 +1206,7 @@ static Env eval_expr_intrinsic(Memory* memory,
         } else {
             EXIT_LOC(memory, func->offset);
         }
+        arg.expr = &EMPTY;
         return arg;
     }
     case INTRIN_ACCESS: {
@@ -1221,6 +1223,7 @@ static Env eval_expr_intrinsic(Memory* memory,
         // NOTE: Is this the right `offset`?
         EXIT_IF_LOC(arg.expr->tag != EXPR_STRING, memory, offset);
         print_string(arg.expr->body.as_string);
+        arg.expr = &EMPTY;
         return arg;
     }
     case INTRIN_TOSTRING: {

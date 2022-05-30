@@ -7,7 +7,8 @@ fib := (\ ->
         a = b;
         b = c;
         loop (n - 1)
-    )
+    );
+    loop
 );
 
 print (toString (-(fib () 45 + fib () 1)));
