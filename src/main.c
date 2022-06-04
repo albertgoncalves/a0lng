@@ -329,7 +329,7 @@ static void tokenize(Memory* memory) {
                 break;
             }
             default: {
-                EXIT_LOC(memory, i);
+                EXIT_LOC(memory, i - 1);
             }
             }
             break;
