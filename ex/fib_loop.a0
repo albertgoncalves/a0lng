@@ -6,7 +6,7 @@ fib := (\ ->
         c := a + b;
         a = b;
         b = c;
-        loop (n - 1)
+        loop (n - 1) -- ...?
     );
     loop
 );

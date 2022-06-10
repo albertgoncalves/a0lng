@@ -268,12 +268,6 @@ static void tokenize(Memory* memory) {
             ++i;
             break;
         }
-        case '#': {
-            while ((i < memory->source_string.len) &&
-                   (memory->source_string.buffer[i++] != '\n'))
-            {}
-            break;
-        }
         case '.': {
             alloc_token(memory, TOKEN_DOT, i++);
             break;
@@ -351,17 +345,27 @@ static void tokenize(Memory* memory) {
             break;
         }
         case '-': {
-            Token* token = alloc_token(memory, TOKEN_SUB, i++);
-            if (!(i < memory->source_string.len)) {
+            // NOTE: Is there a better way to organize this? This seems overly
+            // complicated.
+            if (!((i + 1) < memory->source_string.len)) {
+                alloc_token(memory, TOKEN_SUB, i++);
                 continue;
             }
-            switch (memory->source_string.buffer[i]) {
+            switch (memory->source_string.buffer[i + 1]) {
             case '>': {
-                token->tag = TOKEN_ARROW;
-                ++i;
+                alloc_token(memory, TOKEN_ARROW, i);
+                i += 2;
+                break;
+            }
+            case '-': {
+                // NOTE: Line comment!
+                while ((i < memory->source_string.len) &&
+                       (memory->source_string.buffer[i++] != '\n'))
+                {}
                 break;
             }
             default: {
+                alloc_token(memory, TOKEN_SUB, i++);
             }
             }
             break;

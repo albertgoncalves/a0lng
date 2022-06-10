@@ -6,13 +6,13 @@ if exists("b:current_syntax")
     finish
 endif
 
-syn match Comment  "#.*$"
 syn match Operator "[(){}\.;:=\\>+\-*/%]"
 syn match Number   "\<[0-9]\+\>"
 
 syn match a0Special   contained "\\\(n\|\"\|\\\)"
 
-syn region String start=+"+ skip=+\\"+ end=+"+ contains=a0Special
+syn region String  start=+"+ skip=+\\"+ end=+"+ contains=a0Special
+syn region Comment start="--" end="$"
 
 hi def link a0Special SpecialChar
 
